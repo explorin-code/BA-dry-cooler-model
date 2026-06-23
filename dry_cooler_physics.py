@@ -1,6 +1,8 @@
 from cmath import log10, pi
 from CoolProp.CoolProp import PropsSI
 
+from fluid_properties import get_coolant_properties
+
 # Cooler topologies, flow arrangements, nusselt correlations, fin and tube geometries
 
 def calc_Nu_turbulent(Re: float, Pr: float, d_i: float, L: float):
@@ -20,13 +22,9 @@ def calc_Nu_laminar(Re: float, Pr: float, d_i: float, L: float):
 
     return Nu_mL
 
-def calc_alpha_i(w: float, d_i: float, L: float, coolant: str):
-    rho = PropsSI('D', 'P', 101325, 'T', 293.15, coolant)             # Density of the coolant fluid at ambient conditions [kg/m³]
-    eta = PropsSI('V', 'P', 101325, 'T', 293.15, coolant)             # Dynamic viscosity of the coolant fluid at ambient conditions [Pa-s]
-    lambda_fluid = PropsSI('L', 'P', 101325, 'T', 293.15, coolant)    # Thermal conductivity of the coolant fluid at ambient conditions [W/m-K]
-    c_p = PropsSI('C', 'P', 101325, 'T', 293.15, coolant)             # Specific heat capacity of the coolant fluid at ambient conditions [J/kg-K]
-    nu = eta / rho                                                    # Kinematic viscosity [m²/s]
-    Pr = c_p * eta / lambda_fluid                                     # Prandtl number
+def calc_alpha_i(w: float, d_i: float, L: float, coolant: str, T_coolant: float, P_coolant: float):
+   
+    rho, c_p, lambda_coolant, eta, Pr = get_coolant_properties(P_coolant, T_coolant, coolant)
 
     Re = (w * d_i) / eta                                              # Reynolds number
     Nu                                                                # Nusselt number
@@ -41,7 +39,7 @@ def calc_alpha_i(w: float, d_i: float, L: float, coolant: str):
     else:                                                                                                   # turbulent flow (G1 4.1)
         Nu = calc_Nu_turbulent(Re, Pr, d_i, L)
 
-    alpha_i = (Nu * lambda_fluid) / d_i                                                                     # Convective heat transfer coefficient [W/m²-K]
+    alpha_i = (Nu * lambda_coolant) / d_i                                                                     # Convective heat transfer coefficient [W/m²-K]
 
     return alpha_i
 
@@ -61,12 +59,13 @@ def get_geometry():                     # exemplary values for geometry from M1 
     t_q = 0.06      # tube spacing [m] (from tube center to tube center)
     inflow_cross_section = 1 # Cross-sectional area for the inflow [m²]
 
-    inflow_velocity = 2.0  # Inflow velocity [m/s]
+    w_o = 2.0  # Inflow velocity [m/s]
     
     coolant = 'Water'  # Coolant fluid
-    w0_coolant = 0.5  # Cooling velocity [m/s]
+    v_coolant = 0.5  # Cooling velocity [m/s]
 
-    alpha_i = calc_alpha_i(w0_coolant, d_i, coolant)  # Convective heat transfer coefficient at the inner tube wall [W/m²-K]
+    # local temp dependent property
+    ##alpha_i = calc_alpha_i(w_0, d_i, coolant)  # Convective heat transfer coefficient at the inner tube wall [W/m²-K]
 
     n_tubes = 17
 
@@ -80,11 +79,14 @@ def get_geometry():                     # exemplary values for geometry from M1 
 
     A_min = (t_q - d) * a + (t_q - D) * s  # Minimum cross-sectional area for the airflow between the fins and tubes [m²]
 
+    ### what ratios do i actuallly need?
+
+    Ao_Ae_ratio = (t_q*(a+s))/((t_q-d)*a + (t_q-D)*s)  # Ratio of the total cross-sectional area to the minimum cross-sectional area for the airflow between the fins and tubes [-]
+
+    ### temp dep? w_e = w_o * Ao_Ae_ratio  # velocity at tightest cross-section of the airflow between the fins and tubes [m/s]
 
 
-
-    return D, d, s, a, d_i, material, lambda_R, fin_density, t_R, t_q, inflow_cross_section, inflow_velocity, coolant_velocity, alpha_i ##################
-
+    return D, d, s, a, d_i, material, lambda_R, fin_density, t_R, t_q, inflow_cross_section, v_coolant, w_o, alpha_i ##################
 
 
 
