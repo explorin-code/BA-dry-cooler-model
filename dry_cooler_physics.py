@@ -1,7 +1,7 @@
 from math import log10, pi, ln, tanh
 from CoolProp.CoolProp import PropsSI
 
-from fluid_properties import get_coolant_properties
+import fluid_properties
 
 # Cooler topologies, flow arrangements, nusselt correlations, fin and tube geometries
 
