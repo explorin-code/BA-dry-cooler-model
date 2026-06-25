@@ -16,6 +16,6 @@ def calc_alpha_R(Nu: float, lambda_air: float, d: float): # mean alpha of fin an
     alpha_R = (Nu * lambda_air) / d
     return alpha_R
 
-def calc_heat_transfer_coeff(alpha_S: float, A: float, A_i: float, alpha_i: float, d: float, d_i: float, lambda_R: float):
+def calc_k(alpha_S: float, A: float, A_i: float, alpha_i: float, d: float, d_i: float, lambda_R: float):
     k = (1/alpha_S + (A/A_i)*(1/alpha_i + (d-d_i)/(2*lambda_R)))**(-1)
     return k
