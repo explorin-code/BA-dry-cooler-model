@@ -1,31 +1,37 @@
-from CoolProp.CoolProp import PropsSI
+from dataclasses import dataclass
+import CoolProp.CoolProp as CP
 
 # Functions that return fluid properties based on their state (P, T) and optional humidity
 
-def get_coolant_properties(P: float, T: float, coolant: str):
-   
-    rho = PropsSI('D', 'P', P, 'T', T, coolant)             # Density of coolant at given pressure and temperature [kg/m³]
-    c_p = PropsSI('C', 'P', P, 'T', T, coolant)             # Heat capacity of coolant at given pressure and temperature [J/kg-K]
-    lambda_coolant = PropsSI('L', 'P', P, 'T', T, coolant)  # Thermal conductivity of coolant at given pressure and temperature [W/m-K]
-    eta = PropsSI('V', 'P', P, 'T', T, coolant)             # Dynamic viscosity of coolant at given pressure and temperature [Pa-s]
-    Pr_fluid = c_p * eta / lambda_coolant                   # Prandtl number of coolant [-]
+@dataclass
+class FluidState:
+    rho: float          # density
+    cp: float           # specific heat capacity
+    lambda_: float      # thermal conductivity
+    eta: float          # dynamic viscosity
+    Pr: float           # Prandtl number
+    R: float = 0.0      # relative humidity
 
-    return rho, c_p, lambda_coolant, eta, Pr_fluid
+def get_fluid_properties(fluid: str, T_celsius: float, P: float) -> FluidState:
+    
+    T_kelvin = T_celsius + 273.15
 
+    rho = CP.PropsSI('D', 'P', P, 'T', T_kelvin, fluid)
+    cp = CP.PropsSI('C', 'P', P, 'T', T_kelvin, fluid)
+    lambda_ = CP.PropsSI('L', 'P', P, 'T', T_kelvin, fluid)
+    eta = CP.PropsSI('V', 'P', P, 'T', T_kelvin, fluid)
+    Pr = CP.PropsSI('Prandtl', 'P', P, 'T', T_kelvin, fluid)
+    
+    return FluidState(rho, cp, lambda_, eta, Pr)
 
-def get_air_properties(P: float, T: float, RH: float = None):
+def get_humid_air_properties(T_celsius: float, P: float, R: float) -> FluidState:
 
-    if RH is None:
-        fluid = 'Air'
-        args = ('P', P, 'T', T, fluid)
-    else:
-        fluid = 'HumidAir'
-        args = ('P', P, 'T', T, 'RH', RH, fluid)
+    T_kelvin = T_celsius + 273.15
 
-    rho = PropsSI('D', *args)                               # Density of air or humid air at given pressure, temperature, and optional relative humidity [kg/m³]
-    c_p = PropsSI('C', *args)                               # Heat capacity of air or humid air at given pressure, temperature, and optional relative humidity [J/kg-K]                 
-    lambda_air = PropsSI('L', *args)                        # Thermal conductivity of air or humid air at given pressure, temperature, and optional relative humidity [W/m-K]
-    eta = PropsSI('V', *args)                               # Dynamic viscosity of air or humid air at given pressure, temperature, and optional relative humidity [Pa-s]
-    Pr_air = c_p * eta / lambda_air                         # Prandtl number of air or humid air [-]
+    rho = CP.HAPropsSI('D', 'P', P, 'T', T_kelvin, 'R', R)
+    cp = CP.PropsSI('D', 'P', P, 'T', T_kelvin, 'R', R)
+    lambda_ = CP.PropsSI('D', 'P', P, 'T', T_kelvin, 'R', R)
+    eta = CP.PropsSI('D', 'P', P, 'T', T_kelvin, 'R', R)
+    Pr = CP.PropsSI('D', 'P', P, 'T', T_kelvin, 'R', R)
 
-    return rho, c_p, lambda_air, eta, Pr_air
+    return FluidState(rho, cp, lambda_, eta, Pr)

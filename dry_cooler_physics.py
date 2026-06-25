@@ -1,91 +1,112 @@
-from math import log10, pi, ln, tanh
-from CoolProp.CoolProp import PropsSI
-
-import fluid_properties
+from dataclasses import dataclass
+from math import pi
+import CoolProp.CoolProp as CP
+import numpy as np
 
 # Cooler topologies, flow arrangements, nusselt correlations, fin and tube geometries
 
-def calc_Nu_turbulent(Re: float, Pr: float, d_i: float, L: float):
+@dataclass
+class Geometry:
+    
+    # 1 Raw Input
+    
+    D: float                   # Outer diameter of the fin [m]
+    d: float                   # Outer diameter of the tube [m]
+    s: float                   # Fin thickness [m]
+    a: float                   # Fin spacing [m]
+    d_i: float                 # Inner diameter of the tube [m]
+    material: str              # Fin material
+    fins_per_pipe: int         # Number of fins per pipe
+    n_tubes: int               # Number of tubes
+    n_rows: int                # Number of tube rows
+    t_q: float                 # Tube pitch/spacing (center-to-center) [m]
+    inflow_cross_section: float # Cross-sectional area for the inflow [m²]
+    
+    # 2 Intermediate Properties
 
-    psi = (1.8 * log10(Re) - 1.5)**(-2)                                                             # Correction factor for turbulent flow (G1 27)
-    Nu_mT = (((psi/8)*(Re - 1000)*Pr)/(1 + 12.7*(psi/8)**(1/2)*(Pr**(2/3) - 1)))*(1+(d_i/L)**(2/3)) # Gnielinski equation for turbulent flow with correction factor (G1 26)
+    @property
+    def fin_density(self) -> float:
+        """Number of fins per meter."""
+        return 9 * 2.54 * 100
 
-    return Nu_mT
+    @property
+    def t_R(self) -> float:
+        """Fin pitch [m] (left edge to next left edge)."""
+        return self.a + self.s
 
-def calc_Nu_laminar(Re: float, Pr: float, d_i: float, L: float):
+    @property
+    def width(self) -> float:
+        """Width of the cooler [m]. An intermediate variable, safe here!"""
+        return self.n_tubes * self.t_q
 
-    Nu_mq1 = 4.364                                                      # Nusselt number for fully developed laminar flow with constant heat flux (G1 17)
-    Nu_mq2 = 1.953 * (Re * Pr * (d_i/L))**(1/3)                         # Nusselt number for developing laminar flow with constant heat flux (G1 18)
-    Nu_mq3 = 0.924 * Pr**(1/3) * (Re * (d_i/L))**(1/2)                  # Nusselt number for developing laminar flow with constant heat flux and Prandtl number correction (G1 24)
+    @property
+    def height(self) -> float:
+        """Height of the cooler [m]. Derived from inflow area and width."""
+        return self.inflow_cross_section / self.width
 
-    Nu_mL = (Nu_mq1**3 + 0.6**3 + (Nu_mq2-0.6)**3 + Nu_mq3**3)**(1/3)   # Combined Nusselt number for laminar flow with constant heat flux (G1 25)
-
-    return Nu_mL
-
-def calc_alpha_i(w: float, d_i: float, L: float, coolant: str, T_coolant: float, P_coolant: float):
-   
-    rho, c_p, lambda_coolant, eta, Pr = get_coolant_properties(P_coolant, T_coolant, coolant)
-
-    Re = (w * d_i) / eta                                              # Reynolds number
-    Nu                                                                # Nusselt number
-
-    if Re < 2300:                                                                                           # Laminar flow (G1, 3.1)
-        Nu = calc_Nu_laminar(Re, Pr, d_i, L)
-       
-    elif 2300 <= Re < 4000:                                                                                 # Transitional flow (G1, 4.2)
-        gamma = (Re - 2300) / (4000 - 2300)                                                                 # Transition parameter (G1 30)
-        Nu = (1-gamma) * calc_Nu_laminar(2300, Pr, d_i, L) + gamma * calc_Nu_turbulent(4000, Pr, d_i, L)    # Linear interpolation between laminar and turbulent Nusselt numbers (G1 29)
+    @property
+    def lambda_R(self) -> float:
+        """Thermal conductivity of the fin material at room temperature [W/m-K]."""
+        # CoolProp only does fluids! We use a static lookup for solid metals.
+        solid_conductivities = {
+            'Aluminum': 237.0,   # W/m-K (Standard pure aluminum)
+            'Copper': 401.0,     # W/m-K
+            'Carbon Steel': 50.0 # W/m-K
+        }
         
-    else:                                                                                                   # turbulent flow (G1 4.1)
-        Nu = calc_Nu_turbulent(Re, Pr, d_i, L)
-
-    alpha_i = (Nu * lambda_coolant) / d_i                                                                     # Convective heat transfer coefficient [W/m²-K]
-
-    return alpha_i
-
-
-def get_geometry():                     # exemplary values for geometry from M1 4
-    D = 0.056       # Outer diameter of the fin [m]
-    d = 0.0254      # Inner diameter of the tube [m]
-    s = 0.0004      # Fin thickness [m]
-    a = 0.00242     # Fin spacing [m]
-    d_i = 0.0254    # Inner diameter of the tube [m]
+        # Look up the material, default to 237.0 if there's a typo
+        return solid_conductivities.get(self.material, 237.0)
     
-    material = 'Aluminum'  # Fin material
-    lambda_R = PropsSI('L', 'T', 293.15, 'P', 101325, material) # Thermal conductivity of the fin material at room temperature [W/m-K]
+    # 3 Outputs
 
-    fin_density = 9*2.54*100   # Number of fins per meter
-    t_R = 0.00282   # fin spacing [m] (from fin left edge to left edge of next fin)
-    t_q = 0.06      # tube spacing [m] (from tube center to tube center)
-    inflow_cross_section = 1 # Cross-sectional area for the inflow [m²]
+    @property
+    def A_R(self) -> float:
+        """Outer surface area of fin segments on one tube [m²]."""
+        return 2 * (np.pi / 4) * (self.D**2 - self.d**2) * self.fins_per_pipe
 
-    w_o = 2.0  # Inflow velocity [m/s]
+    @property
+    def A_G(self) -> float:
+        """Exposed base tube area between fins [m²]."""
+        return (self.fins_per_pipe + 1) * np.pi * self.d * self.a
+
+    @property
+    def A(self) -> float:
+        """Total outer surface area product [m²]."""
+        return self.A_R + self.A_G
+
+    @property
+    def A_i(self) -> float:
+        """Inner surface area of one tube [m²]. Uses intermediate height."""
+        return self.height * self.d_i * np.pi
+
+    @property
+    def Ao_Ae_ratio(self) -> float:
+        """Ratio of total to minimum cross-sectional area for airflow [-]."""
+        numerator = self.t_q * (self.a + self.s)
+        denominator = ((self.t_q - self.d) * self.a) + ((self.t_q - self.D) * self.s)
+        return numerator / denominator
     
-    coolant = 'Water'  # Coolant fluid
-    v_coolant = 0.5  # Cooling velocity [m/s]
-
-    n_tubes = 17
-
-    width = n_tubes * t_q                  # Width of the cooler [m]
-    height = inflow_cross_section / width  # Height of the cooler [m]
-
-    fins_per_pipe = 348
-
-    A_R = 2 * (pi/4) * (D**2 - d**2) * fins_per_pipe  # Outer surface area of a segment of the tube between two rips [m²]
-    A_G = (fins_per_pipe + 1) * pi * d * a
+    @property
+    def A_Go(self) -> float:
+        """Bare tube surface area per element [m²] (from VDI: pi * d * height)"""
+        return np.pi * self.d * self.height
     
-    A = A_R * A_G
-    A_i = height * d_i * pi                 # Inner surface area of one tube [m²]
+    @property
+    def l(self) -> float:
+        """length of single tube while taking n_row passes through the cooler, ignores the bending radiuses for now"""
+        return self.n_rows * self.height
 
-    Ao_Ae_ratio = (t_q*(a+s))/((t_q-d)*a + (t_q-D)*s)  # Ratio of the total cross-sectional area to the minimum cross-sectional area for the airflow between the fins and tubes [-]
-
-    return D, d, s, a, d_i, material, lambda_R, fin_density, t_R, t_q, inflow_cross_section, v_coolant, w_o, A_i, Ao_Ae_ratio
-
-
-
-def calc_fin_efficiency(D: str, d: str, alpha_R: float, lambda_R: float, s: float):         # fluchtende Anordnung
-    phi = (D/d - 1) * (1 + 0.35 * ln(D/d))
-    X = phi * d/2 * ((2 * alpha_R) / (lambda_R * s))**(1/2)
-    eta_R = tanh(X)/X
-
-    return eta_R
+def get_geometry() -> Geometry:
+    return Geometry(
+        D=0.056,
+        d=0.0254,
+        s=0.0004,
+        a=0.00242,
+        d_i=0.0254,
+        material='Aluminum',
+        fins_per_pipe=348,
+        n_tubes=17,
+        n_rows=6,
+        t_q=0.06,
+        inflow_cross_section=1.0,
+    )
