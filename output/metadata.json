@@ -1,0 +1,37 @@
+{
+    "processed_files": [],
+    "skipped_files": [
+        {
+            "path": "C:\\VSCode\\BA-dry-cooler-model\\src\\dry_cooler_physics.py",
+            "reason": "Error processing file: 'list' object has no attribute 'split'"
+        },
+        {
+            "path": "C:\\VSCode\\BA-dry-cooler-model\\src\\economics.py",
+            "reason": "Error processing file: 'list' object has no attribute 'split'"
+        },
+        {
+            "path": "C:\\VSCode\\BA-dry-cooler-model\\src\\fluid_properties.py",
+            "reason": "Error processing file: 'list' object has no attribute 'split'"
+        },
+        {
+            "path": "C:\\VSCode\\BA-dry-cooler-model\\src\\heat_transfer_core.py",
+            "reason": "Error processing file: 'list' object has no attribute 'split'"
+        },
+        {
+            "path": "C:\\VSCode\\BA-dry-cooler-model\\src\\parameters.py",
+            "reason": "Error processing file: 'list' object has no attribute 'split'"
+        },
+        {
+            "path": "C:\\VSCode\\BA-dry-cooler-model\\src\\solvers.py",
+            "reason": "Error processing file: 'list' object has no attribute 'split'"
+        },
+        {
+            "path": "C:\\VSCode\\BA-dry-cooler-model\\src\\utils.py",
+            "reason": "Error processing file: 'list' object has no attribute 'split'"
+        }
+    ],
+    "summary": {
+        "total_files_processed": 0,
+        "total_words": 0
+    }
+}

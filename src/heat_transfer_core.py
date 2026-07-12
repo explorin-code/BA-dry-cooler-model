@@ -99,3 +99,17 @@ def calc_overall_k(geo, ops, coolant_state, air_state, T_air_out: float) -> floa
     k_inv = (1 / alpha_S) + (geo.A / geo.A_i) * ((1 / alpha_i) + (geo.d - geo.d_i) / (2 * geo.lambda_R))
     
     return k_inv ** (-1)
+
+
+def calc_heat_cap_flow_coolant(geo, ops, coolant_state):
+    
+    return coolant_state.rho * geo.d_i * ops.w_coolant
+
+def calc_heat_cap_flow_air(geo, ops, air_state):
+    
+    return air_state.rho * geo.d_i * ops.w_o
+
+def calc_cap_flow_ratio(geo, ops, air_state, coolant_state):
+
+    return calc_heat_cap_flow_air(geo, ops, air_state) / calc_heat_cap_flow_coolant (geo, ops, coolant_state)
+

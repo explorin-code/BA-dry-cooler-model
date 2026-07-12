@@ -1,0 +1,475 @@
+Class: Geometry
+Code:
+class Geometry:
+    
+    # 1 Raw Input
+    
+    D: float                   # Outer diameter of the fin [m]
+    d: float                   # Outer diameter of the tube [m]
+    s: float                   # Fin thickness [m]
+    a: float                   # Fin spacing [m]
+    d_i: float                 # Inner diameter of the tube [m]
+    material: str              # Fin material
+    fins_per_pipe: int         # Number of fins per pipe
+    n_tubes: int               # Number of tubes
+    n_rows: int                # Number of tube rows
+    t_q: float                 # Tube pitch/spacing (center-to-center) [m]
+    inflow_cross_section: float # Cross-sectional area for the inflow [m²]
+    
+    # 2 Intermediate Properties
+
+    @property
+    def fin_density(self) -> float:
+        """Number of fins per meter."""
+        return 9 * 2.54 * 100
+
+    @property
+    def t_R(self) -> float:
+        """Fin pitch [m] (left edge to next left edge)."""
+        return self.a + self.s
+
+    @property
+    def width(self) -> float:
+        """Width of the cooler [m]. An intermediate variable, safe here!"""
+        return self.n_tubes * self.t_q
+
+    @property
+    def height(self) -> float:
+        """Height of the cooler [m]. Derived from inflow area and width."""
+        return self.inflow_cross_section / self.width
+
+    @property
+    def lambda_R(self) -> float:
+        """Thermal conductivity of the fin material at room temperature [W/m-K]."""
+        # CoolProp only does fluids! We use a static lookup for solid metals.
+        solid_conductivities = {
+            'Aluminum': 237.0,   # W/m-K (Standard pure aluminum)
+            'Copper': 401.0,     # W/m-K
+            'Carbon Steel': 50.0 # W/m-K
+        }
+        
+        # Look up the material, default to 237.0 if there's a typo
+        return solid_conductivities.get(self.material, 237.0)
+    
+    # 3 Outputs
+
+    @property
+    def A_R(self) -> float:
+        """Outer surface area of fin segments on one tube [m²]."""
+        return 2 * (np.pi / 4) * (self.D**2 - self.d**2) * self.fins_per_pipe
+
+    @property
+    def A_G(self) -> float:
+        """Exposed base tube area between fins [m²]."""
+        return (self.fins_per_pipe + 1) * np.pi * self.d * self.a
+
+    @property
+    def A(self) -> float:
+        """Total outer surface area product [m²]."""
+        return self.A_R + self.A_G
+
+    @property
+    def A_i(self) -> float:
+        """Inner surface area of one tube [m²]. Uses intermediate height."""
+        return self.height * self.d_i * np.pi
+
+    @property
+    def Ao_Ae_ratio(self) -> float:
+        """Ratio of total to minimum cross-sectional area for airflow [-]."""
+        numerator = self.t_q * (self.a + self.s)
+        denominator = ((self.t_q - self.d) * self.a) + ((self.t_q - self.D) * self.s)
+        return numerator / denominator
+    
+    @property
+    def A_Go(self) -> float:
+        """Bare tube surface area per element [m²] (from VDI: pi * d * height)"""
+        return np.pi * self.d * self.height
+    
+    @property
+    def l(self) -> float:
+        """length of single tube while taking n_row passes through the cooler, ignores the bending radiuses for now"""
+        return self.n_rows * self.height
+
+Function: get_geometry
+Code:
+def get_geometry() -> Geometry:
+    return Geometry(
+        D=0.056,
+        d=0.0254,
+        s=0.0004,
+        a=0.00242,
+        d_i=0.0254,
+        material='Aluminum',
+        fins_per_pipe=348,
+        n_tubes=17,
+        n_rows=6,
+        t_q=0.06,
+        inflow_cross_section=1.0,
+    )
+
+Function: fin_density
+Code:
+    def fin_density(self) -> float:
+        """Number of fins per meter."""
+        return 9 * 2.54 * 100
+
+Function: t_R
+Code:
+    def t_R(self) -> float:
+        """Fin pitch [m] (left edge to next left edge)."""
+        return self.a + self.s
+
+Function: width
+Code:
+    def width(self) -> float:
+        """Width of the cooler [m]. An intermediate variable, safe here!"""
+        return self.n_tubes * self.t_q
+
+Function: height
+Code:
+    def height(self) -> float:
+        """Height of the cooler [m]. Derived from inflow area and width."""
+        return self.inflow_cross_section / self.width
+
+Function: lambda_R
+Code:
+    def lambda_R(self) -> float:
+        """Thermal conductivity of the fin material at room temperature [W/m-K]."""
+        # CoolProp only does fluids! We use a static lookup for solid metals.
+        solid_conductivities = {
+            'Aluminum': 237.0,   # W/m-K (Standard pure aluminum)
+            'Copper': 401.0,     # W/m-K
+            'Carbon Steel': 50.0 # W/m-K
+        }
+        
+        # Look up the material, default to 237.0 if there's a typo
+        return solid_conductivities.get(self.material, 237.0)
+
+Function: A_R
+Code:
+    def A_R(self) -> float:
+        """Outer surface area of fin segments on one tube [m²]."""
+        return 2 * (np.pi / 4) * (self.D**2 - self.d**2) * self.fins_per_pipe
+
+Function: A_G
+Code:
+    def A_G(self) -> float:
+        """Exposed base tube area between fins [m²]."""
+        return (self.fins_per_pipe + 1) * np.pi * self.d * self.a
+
+Function: A
+Code:
+    def A(self) -> float:
+        """Total outer surface area product [m²]."""
+        return self.A_R + self.A_G
+
+Function: A_i
+Code:
+    def A_i(self) -> float:
+        """Inner surface area of one tube [m²]. Uses intermediate height."""
+        return self.height * self.d_i * np.pi
+
+Function: Ao_Ae_ratio
+Code:
+    def Ao_Ae_ratio(self) -> float:
+        """Ratio of total to minimum cross-sectional area for airflow [-]."""
+        numerator = self.t_q * (self.a + self.s)
+        denominator = ((self.t_q - self.d) * self.a) + ((self.t_q - self.D) * self.s)
+        return numerator / denominator
+
+Function: A_Go
+Code:
+    def A_Go(self) -> float:
+        """Bare tube surface area per element [m²] (from VDI: pi * d * height)"""
+        return np.pi * self.d * self.height
+
+Function: l
+Code:
+    def l(self) -> float:
+        """length of single tube while taking n_row passes through the cooler, ignores the bending radiuses for now"""
+        return self.n_rows * self.height
+
+Class: FluidState
+Code:
+class FluidState:
+    rho: float          # density
+    cp: float           # specific heat capacity
+    lambda_: float      # thermal conductivity
+    eta: float          # dynamic viscosity
+    Pr: float           # Prandtl number
+    R: float = 0.0      # relative humidity
+
+Function: get_fluid_properties
+Code:
+def get_fluid_properties(fluid: str, T_celsius: float, P: float) -> FluidState:
+    
+    T_kelvin = T_celsius + 273.15
+
+    rho = CP.PropsSI('D', 'P', P, 'T', T_kelvin, fluid)
+    cp = CP.PropsSI('C', 'P', P, 'T', T_kelvin, fluid)
+    lambda_ = CP.PropsSI('L', 'P', P, 'T', T_kelvin, fluid)
+    eta = CP.PropsSI('V', 'P', P, 'T', T_kelvin, fluid)
+    Pr = CP.PropsSI('Prandtl', 'P', P, 'T', T_kelvin, fluid)
+    
+    return FluidState(rho, cp, lambda_, eta, Pr)
+
+Function: get_humid_air_properties
+Code:
+def get_humid_air_properties(T_celsius: float, P: float, R: float) -> FluidState:
+
+    T_kelvin = T_celsius + 273.15
+
+    rho = CP.HAPropsSI('D', 'P', P, 'T', T_kelvin, 'R', R)
+    cp = CP.PropsSI('D', 'P', P, 'T', T_kelvin, 'R', R)
+    lambda_ = CP.PropsSI('D', 'P', P, 'T', T_kelvin, 'R', R)
+    eta = CP.PropsSI('D', 'P', P, 'T', T_kelvin, 'R', R)
+    Pr = CP.PropsSI('D', 'P', P, 'T', T_kelvin, 'R', R)
+
+    return FluidState(rho, cp, lambda_, eta, Pr)
+
+Function: calc_w_e
+Code:
+def calc_w_e(w_o: float, Ao_Ae_ratio: float) -> float:
+    return w_o * Ao_Ae_ratio
+
+Function: calc_w_eT
+Code:
+def calc_w_eT(w_o: float, Ao_Ae_ratio: float, T_mean: float, T_in: float) -> float:
+    w_e = calc_w_e(w_o, Ao_Ae_ratio)
+    return w_e * ((273.15 + T_mean) / (273.15 + T_in))
+
+Function: calc_fin_efficiency
+Code:
+def calc_fin_efficiency(D: float, d: float, alpha_R: float, lambda_R: float, s: float) -> float:
+    phi = (D/d - 1) * (1 + 0.35 * log(D/d))
+    X = phi * d/2 * ((2 * alpha_R) / (lambda_R * s))**(0.5)
+    return tanh(X)/X
+
+Function: calc_Nu_air
+Code:
+def calc_Nu_air(A_ratio: float, Pr_air: float, d: float, w_eT: float, rho_air: float, eta_air: float) -> float:
+    Re_air = (d * w_eT * rho_air) / eta_air
+    return 0.22 * (Re_air**0.6) * (A_ratio**(-0.15)) * (Pr_air**(1/3))
+
+Function: calc_alpha_R
+Code:
+def calc_alpha_R(Nu_air: float, lambda_air: float, d: float) -> float: 
+    return (Nu_air * lambda_air) / d
+
+Function: calc_alpha_S
+Code:
+def calc_alpha_S(alpha_R: float, eta_R: float, A: float, A_R: float) -> float:
+    return alpha_R * (1 - (1 - eta_R) * (A_R / A))
+
+Function: calc_Nu_turbulent
+Code:
+def calc_Nu_turbulent(Re: float, Pr: float, d_i: float, l: float) -> float:
+    psi = (1.8 * log10(Re) - 1.5)**(-2)                                                             
+    return (((psi / 8) * (Re - 1000) * Pr) / (1 + 12.7 * (psi / 8)**(0.5) * (Pr**(2/3) - 1))) * (1 + (d_i / l)**(2/3)) 
+
+Function: calc_Nu_laminar
+Code:
+def calc_Nu_laminar(Re: float, Pr: float, d_i: float, l: float) -> float:
+    Nu_mq1 = 4.364                                                      
+    Nu_mq2 = 1.953 * (Re * Pr * (d_i / l))**(1/3)                         
+    Nu_mq3 = 0.924 * Pr**(1/3) * (Re * (d_i / l))**(0.5)                  
+    return (Nu_mq1**3 + 0.6**3 + (Nu_mq2 - 0.6)**3 + Nu_mq3**3)**(1/3)   
+
+Function: calc_alpha_i
+Code:
+def calc_alpha_i(w: float, d_i: float, l: float, cool_eta: float, cool_Pr: float, cool_lambda: float) -> float:
+    Re = (w * d_i) / cool_eta                                              
+
+    if Re < 2300:                                                                                           
+        Nu = calc_Nu_laminar(Re, cool_Pr, d_i, l)
+    elif 2300 <= Re < 4000:                                                                                 
+        gamma = (Re - 2300) / (4000 - 2300)                                                                 
+        Nu = (1 - gamma) * calc_Nu_laminar(2300, cool_Pr, d_i, l) + gamma * calc_Nu_turbulent(4000, cool_Pr, d_i, l)    
+    else:                                                                                                   
+        Nu = calc_Nu_turbulent(Re, cool_Pr, d_i, l)
+
+    return (Nu * cool_lambda) / d_i                                                                     
+
+Function: calc_overall_k
+Code:
+def calc_overall_k(geo, ops, coolant_state, air_state, T_air_out: float) -> float:
+
+    # ---------------------------------------------------------
+    # 1. AIR SIDE (Outer)
+    # ---------------------------------------------------------
+    T_air_mean = (ops.T_air_in + T_air_out) / 2.0
+    
+    # Corrected velocity using the ops data natively
+    w_eT = calc_w_eT(
+        w_o=ops.w_o, 
+        Ao_Ae_ratio=geo.Ao_Ae_ratio, 
+        T_mean=T_air_mean, 
+        T_in=ops.T_air_in
+    )
+    
+    Nu_air = calc_Nu_air(
+        A_ratio=(geo.A / geo.A_Go), 
+        Pr_air=air_state.Pr, 
+        d=geo.d, 
+        w_eT=w_eT, 
+        rho_air=air_state.rho, 
+        eta_air=air_state.eta
+    )
+    
+    alpha_R = calc_alpha_R(Nu_air, air_state.lambda_, geo.d)
+    eta_R = calc_fin_efficiency(geo.D, geo.d, alpha_R, geo.lambda_R, geo.s)
+    alpha_S = calc_alpha_S(alpha_R, eta_R, geo.A, geo.A_R)
+
+    # ---------------------------------------------------------
+    # 2. COOLANT SIDE (Inner)
+    # ---------------------------------------------------------
+    alpha_i = calc_alpha_i(
+        w=ops.w_coolant, 
+        d_i=geo.d_i, 
+        l=geo.l, 
+        cool_eta=coolant_state.eta, 
+        cool_Pr=coolant_state.Pr, 
+        cool_lambda=coolant_state.lambda_
+    )
+    
+    # ---------------------------------------------------------
+    # 3. OVERALL K-VALUE
+    # ---------------------------------------------------------
+    k_inv = (1 / alpha_S) + (geo.A / geo.A_i) * ((1 / alpha_i) + (geo.d - geo.d_i) / (2 * geo.lambda_R))
+    
+    return k_inv ** (-1)
+
+Class: OperatingConditions
+Code:
+class OperatingConditions:
+    # Fluids
+    coolant_type: str = 'Water'
+    air_type: str = 'Air'
+    
+    # Static Inlet Temperatures [°C]
+    T_coolant_in: float = 90.0  # Hot coolant entering
+    T_air_in: float = 20.0      # Cold air entering
+    
+    # Velocities [m/s]
+    w_coolant: float = 0.5      # Velocity inside tubes
+    w_o: float = 2.0            # Air approach velocity
+    
+    # Pressures [Pa]
+    P_coolant: float = 101325
+    P_air: float = 101325
+
+Function: solve_it_LMTD
+Code:
+def solve_it_LMTD():
+    # 1. Load static configurations
+    geo = get_geometry()
+    ops = OperatingConditions() 
+
+    # 2. Calculate static mass flows (evaluated at the inlet!)
+    rho_coolant_in = get_fluid_properties(ops.coolant_type, ops.T_coolant_in, ops.P_coolant).rho
+    rho_air_in = get_fluid_properties(ops.air_type, ops.T_air_in, ops.P_air).rho
+    
+    # Assuming a 1-pass tube arrangement for the inner flow area
+    A_flow_coolant = geo.n_tubes * (pi / 4) * (geo.d_i ** 2)
+
+    dm_coolant = rho_coolant_in * ops.w_coolant * A_flow_coolant
+    dm_air = rho_air_in * ops.w_o * geo.inflow_cross_section
+
+    # 3. Initial guesses for the iterative loop
+    dT_hot_it = 15.0
+    dT_cold_it = 15.0
+    dT_hot = 5.0    # Forced difference to kickstart the while loop
+    dT_cold = 5.0
+    
+    T_coolant_out = ops.T_coolant_in - dT_hot_it    
+    T_air_out = ops.T_air_in + dT_cold_it
+
+    # Convergence threshold (e.g., 0.001 K)
+    threshold = 1e-3 
+
+    # Initialize these with values larger than the threshold
+    diff_hot = 1.0 
+    diff_cold = 1.0
+
+    # Store history for return
+    history_hot = []
+    history_cold = []
+
+    # while either is still moving significantly
+    while (abs(diff_hot) > threshold) or ((diff_cold) > threshold):
+        
+        dT_hot = dT_hot_it
+        dT_cold = dT_cold_it
+        
+        # Calculate dynamic mean temperatures for this loop
+        T_air_mean = (T_air_out + ops.T_air_in) / 2.0
+        T_coolant_mean = (ops.T_coolant_in + T_coolant_out) / 2.0
+
+        # Get dynamic fluid states at the mean temperature
+        coolant_state = get_fluid_properties(ops.coolant_type, T_coolant_mean, ops.P_coolant)
+        air_state = get_fluid_properties(ops.air_type, T_air_mean, ops.P_air)
+
+        # Pass everything to the orchestrator
+        k = calc_overall_k(
+            geo=geo, 
+            ops=ops, 
+            coolant_state=coolant_state, 
+            air_state=air_state, 
+            T_air_out=T_air_out
+        )
+
+        # Log Mean Temperature Difference
+        LMTD = calc_LMTD(dT_hot, dT_cold)
+        
+        # Total Area (Make sure n_rows is defined in your Geometry class!)
+        A_tot = geo.A * geo.n_tubes * geo.n_rows
+
+        # Total Heat Transfer
+        dQ = A_tot * k * LMTD
+
+        # Calculate new temperature drops based on the heat transferred
+        dT_air_rise = dQ / (dm_air * air_state.cp)               
+        dT_coolant_drop = dQ / (dm_coolant * coolant_state.cp)   
+
+        # calculate the raw exiting temperatures for the next iteration
+        raw_T_coolant_out = ops.T_coolant_in - dT_coolant_drop
+        raw_T_air_out = ops.T_air_in + dT_air_rise
+
+        # UNDER-RELAXATION: Slow down the update!
+        # omega = 0.1 means "take 10% of the new guess, keep 90% of the old guess"
+        omega = 0.1 
+        T_coolant_out = (1 - omega) * T_coolant_out + omega * raw_T_coolant_out
+        T_air_out = (1 - omega) * T_air_out + omega * raw_T_air_out
+
+        # Calculate new diffs for the loop condition
+        new_dT_hot = ops.T_coolant_in - T_air_out
+        new_dT_cold = T_coolant_out - ops.T_air_in
+        
+        diff_hot = new_dT_hot - dT_hot_it
+        diff_cold = new_dT_cold - dT_cold_it
+        
+        dT_hot_it = new_dT_hot
+        dT_cold_it = new_dT_cold
+
+        # Add this to see what the solver is actually doing!
+        print(f"Hot Error: {diff_hot:.5f} | Cold Error: {diff_cold:.5f} | T_coolant_out: {T_coolant_out:.2f} | T_air_out: {T_air_out:.2f}")
+        
+        history_hot.append(diff_hot)
+        history_cold.append(diff_cold)
+
+    return k, dQ, T_coolant_out, T_air_out, history_hot, history_cold
+
+Function: calc_LMTD
+Code:
+def calc_LMTD(dT_hot: float, dT_cold: float) -> float:
+    """Calculates LMTD and safely catches mathematical singularities."""
+    # Prevent math domain error from temperature crossovers
+    if dT_hot <= 0 or dT_cold <= 0:
+        return 1e-5 
+        
+    # Prevent division by zero if differences are identical
+    if abs(dT_hot - dT_cold) < 1e-5:
+        return dT_hot
+        
+    return (dT_hot - dT_cold) / log(dT_hot / dT_cold)
+
