@@ -1,4 +1,4 @@
-﻿repo_path: "./src"
+repo_path: "./src"
 output_dir: "./output"
 max_words: 300000
 max_file_size: 5242880
