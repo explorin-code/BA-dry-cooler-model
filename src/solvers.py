@@ -173,6 +173,7 @@ def solve_it_NTU(omega: float = 0.1):
 
     # while either is still moving significantly
     while (abs(diff_hot) > threshold) or ((diff_cold) > threshold):
+        n = geo.n_rows
 
         dT_hot = dT_hot_it
         dT_cold = dT_cold_it
@@ -195,20 +196,37 @@ def solve_it_NTU(omega: float = 0.1):
         )
 
         # Total Area
-        A_tot = geo.A * geo.n_tubes * geo.n_rows
+        A_run = geo.A * geo.n_tubes
 
         # Dimensionless Groups
         W1 = dm_coolant * coolant_state.cp
         W2 = dm_air * air_state.cp
         R1 = W1 / W2
-        NTU1 = (k * A_tot) / W1
+        NTU1 = (k * A_run) / W1
 
         # P1 Correlation
         P1 = calc_P(NTU1, R1)
-        P2 = P1 * R1
 
-        raw_T_coolant_out = ops.T_coolant_in - P1 * (ops.T_coolant_in - ops.T_air_in)
-        raw_T_air_out = ops.T_air_in + P2 * (ops.T_coolant_in - ops.T_air_in)
+
+        ###### P-Series
+        if abs(R1 - 1.0) < 1e-6:
+        # Source: VDI C1, p. 53, Gl. (47)
+            P1tot = (n * P1) / (1 + (n - 1) * P1)
+    
+        else:
+            # Source: Brunner p. 14, Tab 2.2, Item 6 (rearranged VDI Gl. 46)
+            # We first define the retention term X
+            X = (1 - P1 * R1) / (1 - P1)
+        
+            # Calculate overall system effectiveness
+            P1tot = (X**n - 1) / (X**n - R1)
+
+        P2tot = P1tot * R1
+        
+        ########
+
+        raw_T_coolant_out = ops.T_coolant_in - P1tot * (ops.T_coolant_in - ops.T_air_in)
+        raw_T_air_out = ops.T_air_in + P2tot * (ops.T_coolant_in - ops.T_air_in)
 
         # Calc dQ
         dQ = W1 * (ops.T_coolant_in - raw_T_coolant_out)
