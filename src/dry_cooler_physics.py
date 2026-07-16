@@ -148,12 +148,12 @@ def get_geometry() -> Geometry:
     return Geometry(
         # OBSOLETE (safe to delete): `D=0.056,` used to sit here -- default
         # for the old circular-fin diameter field, see note on Geometry above.
-        d=0.012,                   # 0.0254 in an earlier iteration
+        d=0.009,                   # 0.0254 in an earlier iteration
         s=0.00012,
         a=0.0023,
-        d_i=0.011,                 # 12 mm OD with 0.5 mm wall thickness (0.021 in an earlier iteration)
+        d_i=0.008,                 # 12 mm OD with 0.5 mm wall thickness (0.021 in an earlier iteration)
         material='Aluminum',
-        n_tubes=11,                # 17 in an earlier iteration
+        n_tubes=17,                # 17 in an earlier iteration
         n_rows=6,
         t_q=0.03,                  # 0.06 in an earlier iteration
         t_l=0.03,                  # added for fin-efficiency calculation

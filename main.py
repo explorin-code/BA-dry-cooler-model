@@ -1,19 +1,19 @@
 """
 main.py
 =======
-Runs both solvers (LMTD and NTU) back to back with the same
+Runs all three solvers (LMTD, NTU, and Cell) back to back with the same
 under-relaxation factor and plots their convergence side by side:
 outlet temperatures on the left, iteration errors on the right. The
 grey box up top echoes the exact input conditions (and geometry) that
-were fed into both runs, and the green/purple boxes below it summarize
-each solver's converged result.
+were fed into all three runs, and the green/purple/orange boxes below
+it summarize each solver's converged result.
 """
 
 import matplotlib.pyplot as plt
 import matplotlib.colors as mc
 import seaborn as sns
 
-from src.solvers import solve_it_LMTD, solve_it_NTU
+from src.solvers import solve_it_LMTD, solve_it_NTU, solve_it_cell
 from src.parameters import OperatingConditions
 from src.dry_cooler_physics import get_geometry
 
@@ -21,20 +21,26 @@ sns.set_theme(style="whitegrid", context="talk")
 
 # ------------------------------------------------------------------
 # Centralized under-relaxation factor.
-# Both solvers get the SAME omega so the step size (and therefore the
-# iteration count / x-axis) is directly comparable between them.
+# All three solvers get the SAME omega so the step size (and therefore
+# the iteration count / x-axis) is directly comparable between them.
 # ------------------------------------------------------------------
 CENTRAL_OMEGA = 0.2
 
+# Cell method's own knob (spatial resolution along each tube pass) --
+# not shared with LMTD/NTU since they have no notion of segments.
+CELL_N_SEGMENTS = 20
+
 # ------------------------------------------------------------------
-# Solver base colors: green (LMTD) / purple (NTU).
+# Solver base colors: green (LMTD) / purple (NTU) / orange (Cell).
 # Deliberately avoiding red/blue since that pairing tends to read as
 # "cold/hot" -- these colors carry no thermal connotation.
-# (Taken from the ColorBrewer PRGn diverging pair -- colorblind-safe
-# and visually distinct.)
+# (Green/purple taken from the ColorBrewer PRGn diverging pair; orange
+# taken from the companion PuOr pair -- all three colorblind-safe and
+# visually distinct from one another.)
 # ------------------------------------------------------------------
 COLOR_LMTD = "#1b7837"  # green
 COLOR_NTU = "#762a83"   # purple
+COLOR_CELL = "#e08214"  # orange
 
 
 def lighten_color(color, factor=0.5):
@@ -47,7 +53,7 @@ def plot_with_tail(ax, series, max_len, color, label, linewidth=2.2, marker='o',
     """
     Plot `series` as a solid line for the iterations it actually ran.
     If it converged before `max_len`, extend it as a flat dashed line
-    (starting from its last value) so both solvers span the same x-range.
+    (starting from its last value) so all solvers span the same x-range.
     """
     n = len(series)
     ax.plot(range(n), series, color=color, linewidth=linewidth,
@@ -123,7 +129,7 @@ def format_output_conditions(label: str, T_coolant_out: float, T_air_out: float,
 
 
 # ------------------------------------------------------------------
-# Run both solvers with the same omega
+# Run all three solvers with the same omega
 # ------------------------------------------------------------------
 (k_lmtd, Q_lmtd, Tc_lmtd, Ta_lmtd,
  hist_hot_lmtd, hist_cold_lmtd,
@@ -141,8 +147,16 @@ print(f"[LMTD] converged! k = {k_lmtd:.2f} W/m2K, Q = {Q_lmtd/1000:.2f} kW, "
 print(f"[NTU]  converged! k = {k_ntu:.2f} W/m2K, Q = {Q_ntu/1000:.2f} kW, "
       f"iterations = {len(hist_hot_ntu)}")
 
+(k_cell, Q_cell, Tc_cell, Ta_cell,
+ hist_hot_cell, hist_cold_cell,
+ hist_Tc_cell, hist_Ta_cell,
+ diag_cell) = solve_it_cell(n_segments=CELL_N_SEGMENTS, omega=CENTRAL_OMEGA)
+
+print(f"[Cell] converged! k = {k_cell:.2f} W/m2K, Q = {Q_cell/1000:.2f} kW, "
+      f"iterations = {len(hist_hot_cell)}")
+
 # ------------------------------------------------------------------
-# Input conditions actually used by the solvers (both solvers construct
+# Input conditions actually used by the solvers (all three solvers construct
 # OperatingConditions() with the same defaults, so a fresh instance here
 # reflects exactly what was fed into the runs above).
 # ------------------------------------------------------------------
@@ -155,21 +169,24 @@ input_conditions_text = format_input_conditions(ops) + "\n" + format_geometry_in
 # ------------------------------------------------------------------
 output_text_lmtd = format_output_conditions("LMTD", Tc_lmtd, Ta_lmtd, Q_lmtd, diag_lmtd)
 output_text_ntu = format_output_conditions("NTU", Tc_ntu, Ta_ntu, Q_ntu, diag_ntu)
+output_text_cell = format_output_conditions("Cell", Tc_cell, Ta_cell, Q_cell, diag_cell)
 
 # ------------------------------------------------------------------
 # Colors: one hue per solver, air = lighter tone of the coolant hue
 # ------------------------------------------------------------------
 color_lmtd_air = lighten_color(COLOR_LMTD, 0.55)
 color_ntu_air = lighten_color(COLOR_NTU, 0.55)
+color_cell_air = lighten_color(COLOR_CELL, 0.55)
 
 color_lmtd_hoterr = lighten_color(COLOR_LMTD, 0.45)
 color_ntu_hoterr = lighten_color(COLOR_NTU, 0.45)
+color_cell_hoterr = lighten_color(COLOR_CELL, 0.45)
 
-max_len_temp = max(len(hist_Tc_lmtd), len(hist_Tc_ntu))
-max_len_err = max(len(hist_hot_lmtd), len(hist_hot_ntu))
+max_len_temp = max(len(hist_Tc_lmtd), len(hist_Tc_ntu), len(hist_Tc_cell))
+max_len_err = max(len(hist_hot_lmtd), len(hist_hot_ntu), len(hist_hot_cell))
 
 # ====================================================================
-# Both plots share ONE figure/window, side by side
+# All three plots share ONE figure/window, side by side
 # ====================================================================
 fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(17, 8.5))
 
@@ -178,6 +195,8 @@ plot_with_tail(ax1, hist_Tc_lmtd, max_len_temp, COLOR_LMTD, "LMTD - Coolant out"
 plot_with_tail(ax1, hist_Ta_lmtd, max_len_temp, color_lmtd_air, "LMTD - Air out")
 plot_with_tail(ax1, hist_Tc_ntu, max_len_temp, COLOR_NTU, "NTU - Coolant out")
 plot_with_tail(ax1, hist_Ta_ntu, max_len_temp, color_ntu_air, "NTU - Air out")
+plot_with_tail(ax1, hist_Tc_cell, max_len_temp, COLOR_CELL, "Cell - Coolant out")
+plot_with_tail(ax1, hist_Ta_cell, max_len_temp, color_cell_air, "Cell - Air out")
 
 ax1.axhline(ops.T_air_in, color='blue', linewidth=1.5, linestyle='--', alpha=0.8, zorder=1, label="T_air_in")
 ax1.axhline(ops.T_coolant_in, color='red', linewidth=1.5, linestyle='--', alpha=0.8, zorder=1, label="T_coolant_in")
@@ -185,7 +204,7 @@ ax1.axhline(ops.T_coolant_in, color='red', linewidth=1.5, linestyle='--', alpha=
 ax1.set_title(f"Outlet Temperatures ($\\omega$ = {CENTRAL_OMEGA})")
 ax1.set_xlabel("Iteration")
 ax1.set_ylabel("Temperature [°C]")
-ax1.legend()
+ax1.legend(fontsize=9)
 
 # --- Right: errors (dT_hot / dT_cold) -------------------------------
 # cold error = full (dark) color, hot error = lighter tone
@@ -193,14 +212,16 @@ plot_with_tail(ax2, hist_hot_lmtd, max_len_err, color_lmtd_hoterr, "LMTD - Error
 plot_with_tail(ax2, hist_cold_lmtd, max_len_err, COLOR_LMTD, "LMTD - Error dT_cold")
 plot_with_tail(ax2, hist_hot_ntu, max_len_err, color_ntu_hoterr, "NTU - Error dT_hot")
 plot_with_tail(ax2, hist_cold_ntu, max_len_err, COLOR_NTU, "NTU - Error dT_cold")
+plot_with_tail(ax2, hist_hot_cell, max_len_err, color_cell_hoterr, "Cell - Error dT_hot")
+plot_with_tail(ax2, hist_cold_cell, max_len_err, COLOR_CELL, "Cell - Error dT_cold")
 
 ax2.axhline(0, color='black', linewidth=0.8, linestyle=':')
 ax2.set_title(f"Iteration Errors ($\\omega$ = {CENTRAL_OMEGA})")
 ax2.set_xlabel("Iteration")
 ax2.set_ylabel("Difference (Current - Previous) [K]")
-ax2.legend()
+ax2.legend(fontsize=9)
 
-fig.suptitle("LMTD vs. NTU Solver Convergence", fontsize=18, fontweight="bold", y=0.99)
+fig.suptitle("LMTD vs. NTU vs. Cell Solver Convergence", fontsize=18, fontweight="bold", y=0.99)
 
 # --- Input Conditions field: inlet temps + all 3 flow-rate reps for both media ---
 fig.text(
@@ -211,22 +232,31 @@ fig.text(
     bbox=dict(boxstyle="round,pad=0.5", facecolor="whitesmoke", edgecolor="gray", alpha=0.9),
 )
 
-# --- Output fields: one per solver, placed side-by-side below the input box ---
+# --- Output fields: Cell (orange) gets its own centered row up top,
+# LMTD/NTU share the line below it (narrower spacing so both boxes
+# stay within the figure width) ---
 fig.text(
-    0.27, 0.83,
+    0.5, 0.83,
+    output_text_cell,
+    ha="center", va="top",
+    fontsize=8.2, family="monospace",
+    bbox=dict(boxstyle="round,pad=0.45", facecolor="#fdf0e0", edgecolor=COLOR_CELL, alpha=0.9),
+)
+fig.text(
+    0.32, 0.745,
     output_text_lmtd,
     ha="center", va="top",
-    fontsize=8.8, family="monospace",
+    fontsize=8.2, family="monospace",
     bbox=dict(boxstyle="round,pad=0.45", facecolor="#eaf5ec", edgecolor=COLOR_LMTD, alpha=0.9),
 )
 fig.text(
-    0.73, 0.83,
+    0.68, 0.745,
     output_text_ntu,
     ha="center", va="top",
-    fontsize=8.8, family="monospace",
+    fontsize=8.2, family="monospace",
     bbox=dict(boxstyle="round,pad=0.45", facecolor="#f3ecf5", edgecolor=COLOR_NTU, alpha=0.9),
 )
 
-fig.tight_layout(rect=[0, 0, 1, 0.72])
+fig.tight_layout(rect=[0, 0, 1, 0.65])
 
 plt.show()
