@@ -21,7 +21,7 @@ class OperatingConditions:
 
     # --- Static inlet temperatures [°C] ---------------------------------
     T_coolant_in: float = 37.0     # hot coolant entering  -- Konrad: 37 °C, 25 °C target output
-    T_air_in: float = 15.0         # cold air entering
+    T_air_in: float = 20.0         # cold air entering
 
     # --- Coolant side: specify EXACTLY ONE of the following three ------
     # (the other two are derived automatically from geometry + inlet density)

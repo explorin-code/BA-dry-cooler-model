@@ -14,6 +14,7 @@ you're comparing them, read solve_it_LMTD first.
 """
 
 from math import log, pi, exp
+from functools import lru_cache
 import numpy as np
 
 from src.parameters import OperatingConditions
@@ -40,17 +41,11 @@ def calc_LMTD(dT_hot: float, dT_cold: float) -> float:
     return (dT_hot - dT_cold) / log(dT_hot / dT_cold)
 
 
-# -----------------------------------------------------------------------
-# Source: Brunner, p. 14 (citing Holman, "Heat Transfer", 10th ed., 2010)
-# -----------------------------------------------------------------------
 def calc_P(NTU1, R1) -> float:
-    """P1 correlation: single-pass effectiveness as a function of NTU1
-    and the capacity-rate ratio R1."""
+    """P1 correlation for single-pass effectiveness (Brunner, p. 14, citing Holman)."""
     return 1 - exp(((NTU1**0.22) / R1) * (exp(-R1 * NTU1**0.78) - 1))
 
-# ALTERNATE (inactive) -- not currently used, kept for reference.
-# Source: VDI Heat Atlas, Section [not recorded], p. 50 [eq. # not recorded]
-#     return 1 - exp((exp(-R1 * NTU1) - 1) / R1)
+# Alternate (inactive) P1 formula, VDI Heat Atlas p. 50: return 1 - exp((exp(-R1 * NTU1) - 1) / R1)
 
 
 # =============================================================================
@@ -58,11 +53,7 @@ def calc_P(NTU1, R1) -> float:
 # =============================================================================
 
 def solve_it_LMTD(omega: float = 0.1):
-    """
-    omega: centralized under-relaxation factor. Pass the SAME value into
-    solve_it_NTU() when comparing the two solvers so the step size is
-    consistent between them.
-    """
+    """omega: under-relaxation factor; use the same value as solve_it_NTU() for comparable steps."""
     # --- 1. Load static configuration -----------------------------------
     geo = get_geometry()
     ops = OperatingConditions()
@@ -173,12 +164,7 @@ def solve_it_LMTD(omega: float = 0.1):
 # =============================================================================
 
 def solve_it_NTU(omega: float = 0.1):
-    """
-    omega: centralized under-relaxation factor. Pass the SAME value into
-    solve_it_LMTD() when comparing the two solvers so the step size is
-    consistent between them. (Originally this solver used omega=0.5 --
-    override at the call site if you want to reproduce that behavior.)
-    """
+    """omega: under-relaxation factor; use the same value as solve_it_LMTD() for comparable steps. (Originally omega=0.5 here.)"""
     # --- 1. Load static configuration -----------------------------------
     geo = get_geometry()
     ops = OperatingConditions()
@@ -300,108 +286,75 @@ def solve_it_NTU(omega: float = 0.1):
 # Solver 3: Cell-Method
 # =============================================================================
 
-def solve_it_cell(n_segments: int = 10, omega: float = 0.1):
-    """
-    omega: SAME centralized under-relaxation factor as the other two
-    solvers. Applied per-cell (blended against that cell's previous-outer-
-    iteration value) so the step size stays comparable across all three
-    solvers when plotted together.
-    """
-    omega = 1 # TEMP BECAUSE SLOW
+# Caches CoolProp lookups (rounded to 0.01 degC) -- the cell solver calls
+# get_fluid_properties thousands of times per solve, mostly at near-duplicate T.
+@lru_cache(maxsize=None)
+def _get_fluid_properties_cached(fluid: str, T_rounded: float, P: float):
+    return get_fluid_properties(fluid, T_rounded, P)
 
-    # --- 1. Load static configuration -----------------------------------
-    geo = get_geometry()
-    ops = OperatingConditions()
 
-    # Per-cell static mass flows (mirrors dm_coolant/dm_air in the other two
-    # solvers, but divided down to a single cell's share). Coolant splits
-    # only across the n_tubes parallel tubes (same flow serially through all
-    # n_segments of a tube). Air splits across the whole frontal face of a
-    # row, i.e. across BOTH n_tubes (transverse) AND n_segments (along the
-    # tube length).
-    dm_coolant = ops.m_coolant / geo.n_tubes
-    dm_air = ops.m_o / (geo.n_tubes * n_segments)
+def _get_fluid_properties_fast(fluid: str, T_celsius: float, P: float):
+    return _get_fluid_properties_cached(fluid, round(T_celsius, 2), P) ## 2
 
-    # --- 2. Grid initialization (row, tube, segment) ----------------------
-    # T_coolant / T_air: storing the outlet of each segment
-    T_c = np.full((geo.n_rows, geo.n_tubes, n_segments), ops.T_coolant_in)
-    T_a = np.full((geo.n_rows, geo.n_tubes, n_segments), ops.T_air_in)
 
-    threshold = 1e-3                           # grid convergence threshold [K]
-    max_iter = 1000
-
-    # Aggregate (scalar) outlet history -- tracked in parallel with the
-    # grid so this solver's convergence can be plotted on the same axes
-    # as LMTD/NTU (which only ever track scalar outlet temps).
-    dT_hot_it = dT_hot_it_init
-    dT_cold_it = dT_cold_it_init
+def _relax_cell_grid(T_c, T_a, omega, dT_hot_it, dT_cold_it,
+                      geo, ops, n_segments, dm_coolant, dm_air,
+                      threshold, max_iter, min_iter = 1):
     history_hot = []
     history_cold = []
     history_T_coolant = []
     history_T_air = []
 
-    # Coolant exits the array at the last row, at whichever end of the
-    # serpentine that row's traversal finishes on (see get_coolant_inlet).
     r_last = geo.n_rows - 1
     r_exit = 0
     s_exit = n_segments - 1
 
-    # while the grid hasn't settled (checked at the end of each full sweep)
     for iteration in range(max_iter):
         T_c_old = T_c.copy()
         T_a_old = T_a.copy()
+        max_raw_cold = 0.0
+        max_raw_hot = 0.0
 
         # Pass 1: coolant direction -- r_last -> 0
         for r in range(r_last, -1, -1):
             for t in range(geo.n_tubes):
 
                 s_range = range(0, n_segments, 1) if r % 2 == 0 else range(s_exit, -1, -1)
-            
+
                 for s in s_range:
-
-                    # Local inlet temperatures
-                    # Coolant: logic depends on circuit layout -- for now simple serpentines in z-direction
                     T_c_in = get_coolant_inlet(r, t, s, n_segments, T_c, ops, geo)
+                    T_a_in = get_staggered_air_inlet(r, t, s, T_a_old, ops, geo)
 
-                    # Air: Staggered mixing logic (Source: VDI C1, 3.1)
-                    T_a_in = get_staggered_air_inlet(r, t, s, T_a_old, ops, geo) # air not yet updated
-
-                    # Local properties (k) at local T_mean
-                    T_mean = (T_c_in + T_a_in) / 2.0  ## TODO: this seems very different, check later
-                    props_c = get_fluid_properties(ops.coolant_type, T_mean, ops.P_coolant)
-                    props_a = get_fluid_properties(ops.air_type, T_mean, ops.P_air)
+                    T_mean = (T_c_in + T_a_in) / 2.0
+                    props_c = _get_fluid_properties_fast(ops.coolant_type, T_mean, ops.P_coolant)
+                    props_a = _get_fluid_properties_fast(ops.air_type, T_mean, ops.P_air)
 
                     k_local = calc_overall_k(geo, ops, props_c, props_a, T_a_in)
 
-                    # Local dimensionless groups
-                    A_cell = geo.A / n_segments  # area per cell
+                    A_cell = geo.A / n_segments
                     W1 = dm_coolant * props_c.cp
                     W2 = dm_air * props_a.cp
                     R_loc = W1 / W2
                     NTU_loc = (k_local * A_cell) / W1
 
                     P1_loc = calc_P(NTU_loc, R_loc)
-                    # P2_loc = P1_loc * R_loc # P2 => T_a not required in coolant pass
 
-                    # Update temperatures (under-relaxed against this cell's
-                    # previous-outer-iteration value, same omega as LMTD/NTU)
                     raw_T_c = T_c_in - P1_loc * (T_c_in - T_a_in)
-                    # raw_T_a = T_a_in + P2_loc * (T_c_in - T_a_in)
+                    max_raw_cold = max(max_raw_cold, abs(raw_T_c - T_c_old[r, t, s]))
                     T_c[r, t, s] = (1 - omega) * T_c_old[r, t, s] + omega * raw_T_c
-                    # T_a[r, t, s] = (1 - omega) * T_a_old[r, t, s] + omega * raw_T_a
 
         # Pass 2: air direction -- 0 -> r_last
         for r in range(geo.n_rows):
             for t in range(geo.n_tubes):
 
-                s_range = range(0, n_segments) if r % 2 == 0 else range (s_exit, -1, -1)
+                s_range = range(0, n_segments) if r % 2 == 0 else range(s_exit, -1, -1)
                 for s in s_range:
-                    T_c_in = get_coolant_inlet(r, t, s, n_segments, T_c, ops, geo)  # already fresh from pass 1
-                    T_a_in = get_staggered_air_inlet(r, t, s, T_a, ops, geo)        # fresh within this pass
+                    T_c_in = get_coolant_inlet(r, t, s, n_segments, T_c, ops, geo)
+                    T_a_in = get_staggered_air_inlet(r, t, s, T_a, ops, geo)
 
                     T_mean = (T_c_in + T_a_in) / 2.0
-                    props_c = get_fluid_properties(ops.coolant_type, T_mean, ops.P_coolant)
-                    props_a = get_fluid_properties(ops.air_type, T_mean, ops.P_air)
+                    props_c = _get_fluid_properties_fast(ops.coolant_type, T_mean, ops.P_coolant)
+                    props_a = _get_fluid_properties_fast(ops.air_type, T_mean, ops.P_air)
                     k_local = calc_overall_k(geo, ops, props_c, props_a, T_a_in)
 
                     A_cell = geo.A / n_segments
@@ -413,6 +366,7 @@ def solve_it_cell(n_segments: int = 10, omega: float = 0.1):
                     P2_loc = P1_loc * R_loc
 
                     raw_T_a = T_a_in + P2_loc * (T_c_in - T_a_in)
+                    max_raw_hot = max(max_raw_hot, abs(raw_T_a - T_a_old[r, t, s]))
                     T_a[r, t, s] = (1 - omega) * T_a_old[r, t, s] + omega * raw_T_a
 
         # Aggregate scalar outlet temps for this iteration, for the plot
@@ -431,30 +385,60 @@ def solve_it_cell(n_segments: int = 10, omega: float = 0.1):
         history_T_coolant.append(T_coolant_out)
         history_T_air.append(T_air_out)
 
-        # Grid-based errors: max absolute change over the WHOLE array this
-        # iteration (computed once, reused for both the printout and the
-        # convergence check below).
         max_err_hot = np.max(np.abs(T_a - T_a_old))    # air grid -- "hot" side error
         max_err_cold = np.max(np.abs(T_c - T_c_old))   # coolant grid -- "cold" side error
 
-        # Live progress printout -- same format as LMTD/NTU, but the error
-        # terms are the max change over the whole grid (not a single scalar
-        # diff), and the outlet temps are grid averages (as they will be at
-        # convergence).
-        print(f"Hot Error: {max_err_hot:.5f} | Cold Error: {max_err_cold:.5f} | "
-              f"T_coolant_out: {T_coolant_out:.2f} | T_air_out: {T_air_out:.2f}")
+        print(f"Hot Error: {max_raw_hot:.5f} | Cold Error: {max_raw_cold:.5f} | "
+              f"T_coolant_out: {T_coolant_out:.2f} | T_air_out: {T_air_out:.2f} | omega: {omega}")
 
-        # Convergence check (grid-based -- the authoritative check, since it
-        # only passes once every cell, not just the aggregate outlets, has
-        # settled)
-        if max_err_cold < threshold and max_err_hot < threshold:
+        if iteration + 1 >= min_iter and max_raw_cold < threshold and max_raw_hot < threshold:
             break
 
+    return (T_c, T_a, dT_hot_it, dT_cold_it, T_coolant_out, T_air_out,
+            history_hot, history_cold, history_T_coolant, history_T_air)
+
+
+def solve_it_cell(n_segments: int = 10, omega: float = 0.1):
+    """omega: same under-relaxation factor as the other solvers, applied per-cell."""
+    # --- 1. Load static configuration -----------------------------------
+    geo = get_geometry()
+    ops = OperatingConditions()
+
+    dm_coolant = ops.m_coolant / geo.n_tubes
+    dm_air = ops.m_o / (geo.n_tubes * n_segments)
+
+    # --- 2. Grid initialization (row, tube, segment) ----------------------
+    T_c = np.full((geo.n_rows, geo.n_tubes, n_segments), ops.T_coolant_in)
+    T_a = np.full((geo.n_rows, geo.n_tubes, n_segments), ops.T_air_in)
+
+    dT_hot_it = dT_hot_it_init
+    dT_cold_it = dT_cold_it_init
+
+    # Stage 1: coarse, fast propagation at a large (capped) omega -- gets
+    # the grid close without chasing tight precision at an undamped step.
+    omega_warm = min(1.0, 10 * omega)
+    (T_c, T_a, dT_hot_it, dT_cold_it, T_coolant_out, T_air_out,
+     hist_hot_1, hist_cold_1, hist_Tc_1, hist_Ta_1) = _relax_cell_grid(
+        T_c, T_a, omega_warm, dT_hot_it, dT_cold_it,
+        geo, ops, n_segments, dm_coolant, dm_air,
+        threshold=1e-1, max_iter=50, min_iter=3
+    )
+
+    # Stage 2: fine polish at the requested omega, warm-started from stage 1 
+    ## in the initial setup the temps dont't change anymore within 0.01 K, but left in here for completeness, as it doesnt take long
+    (T_c, T_a, dT_hot_it, dT_cold_it, T_coolant_out, T_air_out,
+     hist_hot_2, hist_cold_2, hist_Tc_2, hist_Ta_2) = _relax_cell_grid(
+        T_c, T_a, omega, dT_hot_it, dT_cold_it,
+        geo, ops, n_segments, dm_coolant, dm_air,
+        threshold=1e-3, max_iter=1000, min_iter=3 
+    )
+
+    history_hot = hist_hot_1 + hist_hot_2
+    history_cold = hist_cold_1 + hist_cold_2
+    history_T_coolant = hist_Tc_1 + hist_Tc_2
+    history_T_air = hist_Ta_1 + hist_Ta_2
+
     # --- 3. Final-iteration diagnostics -----------------------------------
-    # The cell method has no single "final iteration state" the way LMTD/NTU
-    # do (k/Pr/Re/Nu vary cell to cell) -- so, for a diagnostics summary
-    # comparable to the other two solvers, evaluate one representative
-    # state at the overall (array-average) mean bulk temperatures.
     T_coolant_mean = (ops.T_coolant_in + T_coolant_out) / 2.0
     T_air_mean = (ops.T_air_in + T_air_out) / 2.0
     coolant_state = get_fluid_properties(ops.coolant_type, T_coolant_mean, ops.P_coolant)
@@ -508,7 +492,7 @@ def get_coolant_inlet(r, t, s, n_segments, T_c, ops, geo):
             return T_c[r, t, s_prev]
 
 def get_staggered_air_inlet(r, t, s, T_a, ops, geo):
-    # Air: Staggered mixing logic (Source: VDI C1, 3
+    # Air: Staggered mixing logic (Source: VDI C1, 3.1)
 
     if r == 0:
         return ops.T_air_in

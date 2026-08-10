@@ -150,7 +150,7 @@ print(f"[NTU]  converged! k = {k_ntu:.2f} W/m2K, Q = {Q_ntu/1000:.2f} kW, "
 (k_cell, Q_cell, Tc_cell, Ta_cell,
  hist_hot_cell, hist_cold_cell,
  hist_Tc_cell, hist_Ta_cell,
- diag_cell) = solve_it_cell(n_segments=CELL_N_SEGMENTS, omega=CENTRAL_OMEGA)
+ diag_cell) = solve_it_cell(n_segments=CELL_N_SEGMENTS, omega=CENTRAL_OMEGA) 
 
 print(f"[Cell] converged! k = {k_cell:.2f} W/m2K, Q = {Q_cell/1000:.2f} kW, "
       f"iterations = {len(hist_hot_cell)}")
