@@ -14,7 +14,7 @@ import matplotlib.colors as mc
 import seaborn as sns
 
 from src.solvers import solve_it_LMTD, solve_it_NTU, solve_it_cell
-from src.parameters import OperatingConditions
+from src.operating_conditions import get_operating_conditions, OperatingConditions
 from src.dry_cooler_physics import get_geometry
 
 sns.set_theme(style="whitegrid", context="talk")
@@ -77,7 +77,7 @@ def format_input_conditions(ops: OperatingConditions) -> str:
         f"V̇ = {ops.V_coolant:7.5f} m³/s"
     )
     air_line = (
-        f"Air ({ops.air_type}):        "
+        f"Air (phi = {ops.phi_air:5.1f}):        "
         f"T_in = {ops.T_air_in:5.1f} °C   "
         f"w = {ops.w_o:6.3f} m/s   "
         f"ṁ = {ops.m_o:6.3f} kg/s   "
@@ -160,7 +160,7 @@ print(f"[Cell] converged! k = {k_cell:.2f} W/m2K, Q = {Q_cell/1000:.2f} kW, "
 # OperatingConditions() with the same defaults, so a fresh instance here
 # reflects exactly what was fed into the runs above).
 # ------------------------------------------------------------------
-ops = OperatingConditions()
+ops = get_operating_conditions()
 geo = get_geometry()
 input_conditions_text = format_input_conditions(ops) + "\n" + format_geometry_info(geo)
 
