@@ -7,13 +7,11 @@ iteration structure.
 """
 
 from math import log, pi, exp
-from functools import lru_cache
 import numpy as np
-import CoolProp.CoolProp as CP
 
 from src.operating_conditions import get_operating_conditions
 from src.dry_cooler_physics import get_geometry
-from src.fluid_properties import FluidState, get_fluid_properties, get_air_properties
+from src.fluid_properties import get_fluid_properties, get_air_properties
 from src.heat_transfer_core import calc_overall_k, calc_diagnostics
 
 # Initial guesses for the iteration (both solvers start from the same point)
@@ -46,11 +44,13 @@ def calc_P(NTU1, R1) -> float:
 # Solver 1: LMTD-based
 # =============================================================================
 
-def solve_it_LMTD(omega: float = 0.1):
+def solve_it_LMTD(omega: float = 0.1, ops=None, geo=None):
     """omega: under-relaxation factor; use the same value as solve_it_NTU() for comparable steps."""
     # --- 1. Load static configuration -----------------------------------
-    geo = get_geometry()
-    ops = get_operating_conditions()
+    if geo is None:
+        geo = get_geometry()
+    if ops is None:
+        ops = get_operating_conditions()
 
     # Static mass flows from OperatingConditions (already resolved from
     # whichever of w/m/V was specified, evaluated at inlet density).
@@ -157,11 +157,13 @@ def solve_it_LMTD(omega: float = 0.1):
 # Solver 2: NTU / P-based
 # =============================================================================
 
-def solve_it_NTU(omega: float = 0.1):
+def solve_it_NTU(omega: float = 0.1, ops=None, geo=None):
     """omega: under-relaxation factor; use the same value as solve_it_LMTD() for comparable steps. (Originally omega=0.5 here.)"""
     # --- 1. Load static configuration -----------------------------------
-    geo = get_geometry()
-    ops = get_operating_conditions()
+    if geo is None:
+        geo = get_geometry()
+    if ops is None:
+        ops = get_operating_conditions()
 
     dm_coolant = ops.m_coolant
     dm_air = ops.m_o
@@ -280,38 +282,6 @@ def solve_it_NTU(omega: float = 0.1):
 # Solver 3: Cell-Method
 # =============================================================================
 
-@lru_cache(maxsize=None)
-def _get_fluid_properties_cached(coolant_type: str, T_rounded: float, P: float):
-    T_kelvin = T_rounded + 273.15
-    rho     = CP.PropsSI('D',       'P', P, 'T', T_kelvin, coolant_type)
-    cp      = CP.PropsSI('C',       'P', P, 'T', T_kelvin, coolant_type)
-    lambda_ = CP.PropsSI('L',       'P', P, 'T', T_kelvin, coolant_type)
-    eta     = CP.PropsSI('V',       'P', P, 'T', T_kelvin, coolant_type)
-    Pr      = CP.PropsSI('Prandtl', 'P', P, 'T', T_kelvin, coolant_type)
-    return FluidState(rho, cp, lambda_, eta, Pr)
-
-
-def _get_fluid_properties_fast(ops, T_celsius: float, P: float):
-    return _get_fluid_properties_cached(ops.coolant_type, round(T_celsius, 2), P)
-
-
-@lru_cache(maxsize=None)
-def _get_air_properties_cached(X_rounded: float, T_rounded: float, P: float):
-    T_kelvin = T_rounded + 273.15
-    v_ha    = CP.HAPropsSI('Vha', 'T', T_kelvin, 'P', P, 'W', X_rounded)
-    rho     = 1.0 / v_ha
-    cp      = CP.HAPropsSI('Cha', 'T', T_kelvin, 'P', P, 'W', X_rounded)
-    lambda_ = CP.HAPropsSI('K',   'T', T_kelvin, 'P', P, 'W', X_rounded)
-    eta     = CP.HAPropsSI('M',   'T', T_kelvin, 'P', P, 'W', X_rounded)
-    Pr      = cp * eta / lambda_
-    phi_air = CP.HAPropsSI('R',   'T', T_kelvin, 'P', P, 'W', X_rounded)
-    return FluidState(rho, cp, lambda_, eta, Pr, phi_air)
-
-
-def _get_air_properties_fast(ops, T_celsius: float, P: float):
-    return _get_air_properties_cached(round(ops.X_air, 6), round(T_celsius, 2), P)
-
-
 def _relax_cell_grid(T_c, T_a, omega, dT_hot_it, dT_cold_it,
                       geo, ops, n_segments, dm_coolant, dm_air,
                       threshold, max_iter, min_iter = 1):
@@ -341,8 +311,8 @@ def _relax_cell_grid(T_c, T_a, omega, dT_hot_it, dT_cold_it,
                     T_a_in = get_staggered_air_inlet(r, t, s, T_a_old, ops, geo)
 
                     T_mean = (T_c_in + T_a_in) / 2.0
-                    props_c = _get_fluid_properties_fast(ops, T_mean, ops.P_coolant)
-                    props_a = _get_air_properties_fast(ops, T_mean, ops.P_air)
+                    props_c = get_fluid_properties(ops, T_mean, ops.P_coolant)
+                    props_a = get_air_properties(ops, T_mean, ops.P_air)
 
                     k_local = calc_overall_k(geo, ops, props_c, props_a, T_a_in)
 
@@ -368,8 +338,8 @@ def _relax_cell_grid(T_c, T_a, omega, dT_hot_it, dT_cold_it,
                     T_a_in = get_staggered_air_inlet(r, t, s, T_a, ops, geo)
 
                     T_mean = (T_c_in + T_a_in) / 2.0
-                    props_c = _get_fluid_properties_fast(ops, T_mean, ops.P_coolant)
-                    props_a = _get_air_properties_fast(ops, T_mean, ops.P_air)
+                    props_c = get_fluid_properties(ops, T_mean, ops.P_coolant)
+                    props_a = get_air_properties(ops, T_mean, ops.P_air)
                     k_local = calc_overall_k(geo, ops, props_c, props_a, T_a_in)
 
                     A_cell = geo.A / n_segments
@@ -413,11 +383,13 @@ def _relax_cell_grid(T_c, T_a, omega, dT_hot_it, dT_cold_it,
             history_hot, history_cold, history_T_coolant, history_T_air)
 
 
-def solve_it_cell(n_segments: int = 10, omega: float = 0.1):
+def solve_it_cell(n_segments: int = 10, omega: float = 0.1, ops=None, geo=None):
     """omega: same under-relaxation factor as the other solvers, applied per-cell."""
     # --- 1. Load static configuration -----------------------------------
-    geo = get_geometry()
-    ops = get_operating_conditions()
+    if geo is None:
+        geo = get_geometry()
+    if ops is None:
+        ops = get_operating_conditions()
 
     dm_coolant = ops.m_coolant / geo.n_tubes
     dm_air = ops.m_o / (geo.n_tubes * n_segments)

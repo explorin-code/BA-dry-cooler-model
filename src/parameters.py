@@ -31,13 +31,13 @@ X_AIR = None                    # inlet humidity ratio [kg water/kg dry air]
 # --- Geometry: tube/fin dimensions ----------------------------------------
 D_TUBE_OUTER = 0.009            # tube outer diameter           [m]
 FIN_THICKNESS = 0.00012         # fin thickness                 [m]
-FIN_SPACING = 0.0023            # fin spacing                   [m]
+FIN_SPACING = 0.00023            # fin spacing                   [m]
 D_TUBE_INNER = 0.008            # tube inner diameter           [m]  -- 12 mm OD, 0.5 mm wall
 N_TUBES = 17                    # number of tubes (parallel)
 N_ROWS = 6                      # number of tube rows
 T_Q = 0.03                      # tube pitch, transverse        [m]
 T_L = 0.03                      # tube pitch, longitudinal      [m]
-HEIGHT = 1.5                    # cooler height == single tube-pass length [m]
+HEIGHT = 1                    # cooler height == single tube-pass length [m]
 
 # --- Geometry: fallback values -- None uses the class default ------------
 MATERIAL = None                 # e.g. 'Aluminum'
