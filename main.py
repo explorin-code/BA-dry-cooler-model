@@ -17,6 +17,7 @@ from src.precooling import calc_precooler
 from src.pressure_drop import calc_delta_p_total, calc_delta_p_bundle_air, calc_delta_p_air_total
 from src.economics import calc_pump_power, calc_fan_power, calc_water_usage
 from src.run_scenario import plot_scenario
+from src.plot_profiles import plot_profiles
 
 # ------------------------------------------------------------------
 # Centralized under-relaxation factor / cell resolution.
@@ -45,6 +46,7 @@ W_fan_ambient = calc_fan_power(ops_ambient, air_state_ambient, delta_p_air_ambie
 
 plot_scenario(result_ambient, ops_ambient, geo, label="Ambient (no precooling)",
               omega=CENTRAL_OMEGA, W_pump=W_pump, W_fan=W_fan_ambient)
+plot_profiles(result_ambient, ops_ambient, geo, label="Ambient (no precooling)", n_segments=CELL_N_SEGMENTS)
 
 ops_final, was_precooled = calc_precooler(ops_ambient, result_ambient)
 if was_precooled:
@@ -59,5 +61,6 @@ if was_precooled:
 
     plot_scenario(result_final, ops_final, geo, label="Precooled",
                   omega=CENTRAL_OMEGA, W_pump=W_pump, W_fan=W_fan_final, m_water=m_water)
+    plot_profiles(result_final, ops_final, geo, label="Precooled", n_segments=CELL_N_SEGMENTS)
 
 plt.show()

@@ -37,6 +37,16 @@ class SolverResult:
     history_T_coolant: list
     history_T_air: list
     diagnostics: dict
+    # AI-REVIEW: populated only by Cell (see solve_it_cell) -- these are the
+    # solver's own final converged grids, not reconstructions. LMTD/NTU leave
+    # these None; their spatial profiles are reconstructed on demand by
+    # analysis.py instead, since they never computed spatial data at all.
+    # See CLAUDE.md.
+    T_c_grid: object = None
+    T_a_grid: object = None
+    k_grid: object = None
+    dQdL_grid: object = None
+    local_diagnostics: dict = None   # Re_air/Nu_air/Re_coolant/Nu_coolant grids -- captured, not yet plotted
 
 
 @dataclass
@@ -97,6 +107,12 @@ def solve_it_LMTD(omega: float = 0.1, ops=None, geo=None):
     diff_hot = 1.0                             # seeded above threshold so the loop runs at least once
     diff_cold = 1.0
 
+    # AI-REVIEW: dynamic omega switch (warm -> requested) triggered by
+    # magnitude-growth or double sign-flip, tuned empirically against this
+    # project's own settings/geometry, not derived from a stability proof.
+    # Should converge to the same fixed point regardless of the omega
+    # schedule, but the trigger thresholds themselves are heuristic. See
+    # CLAUDE.md.
     # Start aggressive, drop to the requested omega for good the first time
     # the step size grows instead of shrinking, or the error flips sign
     # twice (see the check inside the loop). Sign-flip counters start at 0
@@ -232,6 +248,12 @@ def solve_it_NTU(omega: float = 0.1, ops=None, geo=None):
     diff_hot = 1.0                             # seeded above threshold so the loop runs at least once
     diff_cold = 1.0
 
+    # AI-REVIEW: dynamic omega switch (warm -> requested) triggered by
+    # magnitude-growth or double sign-flip, tuned empirically against this
+    # project's own settings/geometry, not derived from a stability proof.
+    # Should converge to the same fixed point regardless of the omega
+    # schedule, but the trigger thresholds themselves are heuristic. See
+    # CLAUDE.md.
     # Start aggressive, drop to the requested omega for good the first time
     # the step size grows instead of shrinking, or the error flips sign
     # twice (see the check inside the loop). Sign-flip counters start at 0
@@ -529,9 +551,48 @@ def solve_it_cell(n_segments: int = 10, omega: float = 0.2, ops=None, geo=None):
         T_air_out=T_air_out,
     )
 
+    # --- 4. Per-cell local diagnostics (final converged grid only) --------
+    # AI-REVIEW: reconstruction/interpretation layer, computed once after
+    # convergence -- NOT tracked live during iteration. Reuses the exact
+    # same calc_overall_k/calc_diagnostics calls (and local-T_a_in-as-
+    # T_air_out convention) _relax_cell_grid already uses per cell, just
+    # re-evaluated once on the final T_c/T_a rather than discarded each
+    # sweep. See CLAUDE.md.
+    A_cell = geo.A / n_segments
+    dL_cell = geo.height / n_segments
+
+    k_grid = np.zeros((geo.n_rows, geo.n_tubes, n_segments))
+    dQdL_grid = np.zeros((geo.n_rows, geo.n_tubes, n_segments))
+    Re_air_grid = np.zeros((geo.n_rows, geo.n_tubes, n_segments))
+    Nu_air_grid = np.zeros((geo.n_rows, geo.n_tubes, n_segments))
+    Re_coolant_grid = np.zeros((geo.n_rows, geo.n_tubes, n_segments))
+    Nu_coolant_grid = np.zeros((geo.n_rows, geo.n_tubes, n_segments))
+
+    for r in range(geo.n_rows):
+        for t in range(geo.n_tubes):
+            for s in range(n_segments):
+                T_c_in = get_coolant_inlet(r, t, s, n_segments, T_c, ops, geo)
+                T_a_in = get_staggered_air_inlet(r, t, s, T_a, ops, geo)
+                T_mean = (T_c_in + T_a_in) / 2.0
+                props_c = get_fluid_properties(ops, T_mean, ops.P_coolant)
+                props_a = get_air_properties(ops, T_mean, ops.P_air)
+
+                k_cell = calc_overall_k(geo, ops, props_c, props_a, T_a_in)
+                diag_cell = calc_diagnostics(geo, ops, props_c, props_a, T_a_in)
+
+                k_grid[r, t, s] = k_cell
+                dQdL_grid[r, t, s] = k_cell * A_cell * (T_c[r, t, s] - T_a[r, t, s]) / dL_cell
+                Re_air_grid[r, t, s] = diag_cell['Re_air']
+                Nu_air_grid[r, t, s] = diag_cell['Nu_air']
+                Re_coolant_grid[r, t, s] = diag_cell['Re_coolant']
+                Nu_coolant_grid[r, t, s] = diag_cell['Nu_coolant']
+
     return (k, dQ, T_coolant_out, T_air_out,
             history_hot, history_cold, history_T_coolant, history_T_air,
-            diagnostics)
+            diagnostics,
+            T_c, T_a, k_grid, dQdL_grid,
+            {'Re_air': Re_air_grid, 'Nu_air': Nu_air_grid,
+             'Re_coolant': Re_coolant_grid, 'Nu_coolant': Nu_coolant_grid})
 
 
 # =============================================================================
