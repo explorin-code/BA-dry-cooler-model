@@ -1,23 +1,19 @@
 """
 run_scenario.py
 ================
-Runs all three solvers against a given OperatingConditions, plots their
-convergence side by side, and shows the result in its own window.
+Builds and returns the convergence figure for an already-solved
+ScenarioResult (see solvers.solve_scenario()). Pure display -- no solving.
 """
 
 import matplotlib.pyplot as plt
 import matplotlib.colors as mc
 import seaborn as sns
 
-from src.solvers import solve_it_LMTD, solve_it_NTU, solve_it_cell
+from src.solvers import ScenarioResult
 from src.operating_conditions import OperatingConditions
-from src.dry_cooler_physics import get_geometry
 from src.economics import calc_total_power
 
 sns.set_theme(style="whitegrid", context="talk")
-
-CENTRAL_OMEGA = 0.2
-CELL_N_SEGMENTS = 20
 
 COLOR_LMTD = "#1b7837"  # green
 COLOR_NTU = "#762a83"   # purple
@@ -124,46 +120,29 @@ def format_economics(W_pump, W_fan, m_water) -> str:
     )
 
 
-def run_scenario(ops: OperatingConditions, label: str, W_pump=None, W_fan=None, m_water=None):
-    """Solves LMTD/NTU/Cell against `ops`, builds the convergence figure,
-    and returns it (does NOT call plt.show() -- the caller decides when
-    to display, so multiple scenarios' windows can be shown together).
+def plot_scenario(result: ScenarioResult, ops: OperatingConditions, geo, label: str, omega: float,
+                   W_pump=None, W_fan=None, m_water=None):
+    """Builds the convergence figure for an already-solved ScenarioResult
+    and returns it (does NOT call plt.show() -- the caller decides when to
+    display, so multiple scenarios' windows can be shown together).
     W_pump/W_fan/m_water are optional economics figures to display -- pass
     None for whichever aren't computed yet."""
-    geo = get_geometry()
+    lmtd, ntu, cell = result.lmtd, result.ntu, result.cell
 
-    # --- Run all three solvers with the same omega, same ops/geo --------
-    (k_lmtd, Q_lmtd, Tc_lmtd, Ta_lmtd,
-     hist_hot_lmtd, hist_cold_lmtd,
-     hist_Tc_lmtd, hist_Ta_lmtd,
-     diag_lmtd) = solve_it_LMTD(omega=CENTRAL_OMEGA, ops=ops, geo=geo)
-
-    print(f"[{label}] [LMTD] converged! k = {k_lmtd:.2f} W/m2K, Q = {Q_lmtd/1000:.2f} kW, "
-          f"iterations = {len(hist_hot_lmtd)}")
-
-    (k_ntu, Q_ntu, Tc_ntu, Ta_ntu,
-     hist_hot_ntu, hist_cold_ntu,
-     hist_Tc_ntu, hist_Ta_ntu,
-     diag_ntu) = solve_it_NTU(omega=CENTRAL_OMEGA, ops=ops, geo=geo)
-
-    print(f"[{label}] [NTU]  converged! k = {k_ntu:.2f} W/m2K, Q = {Q_ntu/1000:.2f} kW, "
-          f"iterations = {len(hist_hot_ntu)}")
-
-    (k_cell, Q_cell, Tc_cell, Ta_cell,
-     hist_hot_cell, hist_cold_cell,
-     hist_Tc_cell, hist_Ta_cell,
-     diag_cell) = solve_it_cell(n_segments=CELL_N_SEGMENTS, omega=CENTRAL_OMEGA, ops=ops, geo=geo)
-
-    print(f"[{label}] [Cell] converged! k = {k_cell:.2f} W/m2K, Q = {Q_cell/1000:.2f} kW, "
-          f"iterations = {len(hist_hot_cell)}")
+    print(f"[{label}] [LMTD] converged! k = {lmtd.k:.2f} W/m2K, Q = {lmtd.dQ/1000:.2f} kW, "
+          f"iterations = {len(lmtd.history_hot)}")
+    print(f"[{label}] [NTU]  converged! k = {ntu.k:.2f} W/m2K, Q = {ntu.dQ/1000:.2f} kW, "
+          f"iterations = {len(ntu.history_hot)}")
+    print(f"[{label}] [Cell] converged! k = {cell.k:.2f} W/m2K, Q = {cell.dQ/1000:.2f} kW, "
+          f"iterations = {len(cell.history_hot)}")
 
     # --- Input conditions actually used by the solvers -------------------
     input_conditions_text = format_input_conditions(ops) + "\n" + format_geometry_info(geo)
 
     # --- Per-solver output fields ------------------------------------------
-    output_text_lmtd = format_output_conditions("LMTD", Tc_lmtd, Ta_lmtd, Q_lmtd, diag_lmtd)
-    output_text_ntu = format_output_conditions("NTU", Tc_ntu, Ta_ntu, Q_ntu, diag_ntu)
-    output_text_cell = format_output_conditions("Cell", Tc_cell, Ta_cell, Q_cell, diag_cell)
+    output_text_lmtd = format_output_conditions("LMTD", lmtd.T_coolant_out, lmtd.T_air_out, lmtd.dQ, lmtd.diagnostics)
+    output_text_ntu = format_output_conditions("NTU", ntu.T_coolant_out, ntu.T_air_out, ntu.dQ, ntu.diagnostics)
+    output_text_cell = format_output_conditions("Cell", cell.T_coolant_out, cell.T_air_out, cell.dQ, cell.diagnostics)
     economics_text = format_economics(W_pump, W_fan, m_water)
 
     # --- Colors: one hue per solver, air = lighter tone of the coolant hue ---
@@ -175,8 +154,8 @@ def run_scenario(ops: OperatingConditions, label: str, W_pump=None, W_fan=None, 
     color_ntu_hoterr = lighten_color(COLOR_NTU, 0.45)
     color_cell_hoterr = lighten_color(COLOR_CELL, 0.45)
 
-    max_len_temp = max(len(hist_Tc_lmtd), len(hist_Tc_ntu), len(hist_Tc_cell))
-    max_len_err = max(len(hist_hot_lmtd), len(hist_hot_ntu), len(hist_hot_cell))
+    max_len_temp = max(len(lmtd.history_T_coolant), len(ntu.history_T_coolant), len(cell.history_T_coolant))
+    max_len_err = max(len(lmtd.history_hot), len(ntu.history_hot), len(cell.history_hot))
 
     # ====================================================================
     # All three plots share ONE figure/window, side by side
@@ -185,31 +164,31 @@ def run_scenario(ops: OperatingConditions, label: str, W_pump=None, W_fan=None, 
     fig.canvas.manager.set_window_title(label)
 
     # --- Left: outlet temperatures -------------------------------------
-    plot_with_tail(ax1, hist_Tc_lmtd, max_len_temp, COLOR_LMTD, "LMTD - Coolant out")
-    plot_with_tail(ax1, hist_Ta_lmtd, max_len_temp, color_lmtd_air, "LMTD - Air out")
-    plot_with_tail(ax1, hist_Tc_ntu, max_len_temp, COLOR_NTU, "NTU - Coolant out")
-    plot_with_tail(ax1, hist_Ta_ntu, max_len_temp, color_ntu_air, "NTU - Air out")
-    plot_with_tail(ax1, hist_Tc_cell, max_len_temp, COLOR_CELL, "Cell - Coolant out")
-    plot_with_tail(ax1, hist_Ta_cell, max_len_temp, color_cell_air, "Cell - Air out")
+    plot_with_tail(ax1, lmtd.history_T_coolant, max_len_temp, COLOR_LMTD, "LMTD - Coolant out")
+    plot_with_tail(ax1, lmtd.history_T_air, max_len_temp, color_lmtd_air, "LMTD - Air out")
+    plot_with_tail(ax1, ntu.history_T_coolant, max_len_temp, COLOR_NTU, "NTU - Coolant out")
+    plot_with_tail(ax1, ntu.history_T_air, max_len_temp, color_ntu_air, "NTU - Air out")
+    plot_with_tail(ax1, cell.history_T_coolant, max_len_temp, COLOR_CELL, "Cell - Coolant out")
+    plot_with_tail(ax1, cell.history_T_air, max_len_temp, color_cell_air, "Cell - Air out")
 
     ax1.axhline(ops.T_air_in, color='blue', linewidth=1.5, linestyle='--', alpha=0.8, zorder=1, label="T_air_in")
     ax1.axhline(ops.T_coolant_in, color='red', linewidth=1.5, linestyle='--', alpha=0.8, zorder=1, label="T_coolant_in")
 
-    ax1.set_title(f"Outlet Temperatures ($\\omega$ = {CENTRAL_OMEGA})")
+    ax1.set_title(f"Outlet Temperatures ($\\omega$ = {omega})")
     ax1.set_xlabel("Iteration")
     ax1.set_ylabel("Temperature [°C]")
     ax1.legend(fontsize=9)
 
     # --- Right: errors (dT_hot / dT_cold) -------------------------------
-    plot_with_tail(ax2, hist_hot_lmtd, max_len_err, color_lmtd_hoterr, "LMTD - Error dT_hot")
-    plot_with_tail(ax2, hist_cold_lmtd, max_len_err, COLOR_LMTD, "LMTD - Error dT_cold")
-    plot_with_tail(ax2, hist_hot_ntu, max_len_err, color_ntu_hoterr, "NTU - Error dT_hot")
-    plot_with_tail(ax2, hist_cold_ntu, max_len_err, COLOR_NTU, "NTU - Error dT_cold")
-    plot_with_tail(ax2, hist_hot_cell, max_len_err, color_cell_hoterr, "Cell - Error dT_hot")
-    plot_with_tail(ax2, hist_cold_cell, max_len_err, COLOR_CELL, "Cell - Error dT_cold")
+    plot_with_tail(ax2, lmtd.history_hot, max_len_err, color_lmtd_hoterr, "LMTD - Error dT_hot")
+    plot_with_tail(ax2, lmtd.history_cold, max_len_err, COLOR_LMTD, "LMTD - Error dT_cold")
+    plot_with_tail(ax2, ntu.history_hot, max_len_err, color_ntu_hoterr, "NTU - Error dT_hot")
+    plot_with_tail(ax2, ntu.history_cold, max_len_err, COLOR_NTU, "NTU - Error dT_cold")
+    plot_with_tail(ax2, cell.history_hot, max_len_err, color_cell_hoterr, "Cell - Error dT_hot")
+    plot_with_tail(ax2, cell.history_cold, max_len_err, COLOR_CELL, "Cell - Error dT_cold")
 
     ax2.axhline(0, color='black', linewidth=0.8, linestyle=':')
-    ax2.set_title(f"Iteration Errors ($\\omega$ = {CENTRAL_OMEGA})")
+    ax2.set_title(f"Iteration Errors ($\\omega$ = {omega})")
     ax2.set_xlabel("Iteration")
     ax2.set_ylabel("Difference (Current - Previous) [K]")
     ax2.legend(fontsize=9)

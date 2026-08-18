@@ -1,7 +1,5 @@
 import dataclasses
 
-import src.param_loader as param_loader
-import src.solvers as solvers
 import src.fluid_properties as fluid_props
 import CoolProp.CoolProp as CP
 from scipy.optimize import brentq
@@ -12,11 +10,16 @@ def calc_eta_B ():
     """Return degree of humidification depending on geometry and operational conditions."""
     return 0.8 ## fixed value for now, usually empirical and velocity dependent
 
-def precooling_decider(ops):
-    """Run the cell method once against ambient ops; precool if the
-    resulting T_coolant_out is above the target."""
-    _, _, T_coolant_out, *_ = solvers.solve_it_cell(ops=ops)
-    return T_coolant_out > TARGET_T_COOLANT_OUT
+def precooling_decider(cell_result):
+    """Precool if the already-solved ambient scenario's Cell T_coolant_out
+    is above the target. Takes the Cell SolverResult directly -- no
+    re-solving, so this can't drift from what was actually reported."""
+    decision = cell_result.T_coolant_out > TARGET_T_COOLANT_OUT
+    comparison = ">" if decision else "<="
+    print(f"[Decider] Cell T_coolant_out = {cell_result.T_coolant_out:.2f} °C {comparison} "
+          f"target = {TARGET_T_COOLANT_OUT:.2f} °C -> "
+          f"{'precooling engaged' if decision else 'no precooling needed'}")
+    return decision
 
 def calc_X(T_wb_guess, P_air, phi_air):
     """return the humidity ratio of the air at the wet bulb temperature and given pressure"""
@@ -55,10 +58,12 @@ def calc_cooling_limit(ops):
         # -- fall back to "no cooling potential" rather than crashing
         return ops.T_air_in
 
-def calc_precooler(ops):
+def calc_precooler(ops, ambient_result):
     """returns (ops, was_precooled). ops unchanged and was_precooled=False
-    if the decider says no precooling is needed."""
-    if precooling_decider(ops):
+    if the decider says no precooling is needed. ambient_result is the
+    already-solved ScenarioResult for `ops` -- the decider reads its Cell
+    result rather than re-solving."""
+    if precooling_decider(ambient_result.cell):
         eta_B = calc_eta_B()
 
         theta_K = calc_cooling_limit(ops)
