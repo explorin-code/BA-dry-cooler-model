@@ -27,6 +27,10 @@ class Geometry:
     material: str = 'Aluminum'     # fin material
 
     # --- Intermediate ----------------------------------------------------
+    # AI-REVIEW: this replaced a hardcoded "9 fins/inch" constant that was
+    # numerically inconsistent with fin spacing (a) + fin thickness (s).
+    # Confirm which one -- the original constant, or this derived formula --
+    # actually matches the physical hardware. See CLAUDE.md.
     @property
     def fin_density(self) -> float:
         """Fins per meter, derived from fin pitch (spacing + thickness)."""

@@ -383,7 +383,7 @@ def _relax_cell_grid(T_c, T_a, omega, dT_hot_it, dT_cold_it,
             history_hot, history_cold, history_T_coolant, history_T_air)
 
 
-def solve_it_cell(n_segments: int = 10, omega: float = 0.1, ops=None, geo=None):
+def solve_it_cell(n_segments: int = 10, omega: float = 0.2, ops=None, geo=None):
     """omega: same under-relaxation factor as the other solvers, applied per-cell."""
     # --- 1. Load static configuration -----------------------------------
     if geo is None:
@@ -401,6 +401,12 @@ def solve_it_cell(n_segments: int = 10, omega: float = 0.1, ops=None, geo=None):
     dT_hot_it = dT_hot_it_init
     dT_cold_it = dT_cold_it_init
 
+    # AI-REVIEW: two-stage relaxation (omega_warm + raw-residual convergence
+    # check in _relax_cell_grid). Empirically fast/stable at the settings
+    # used throughout this app, but the same physical problem has been
+    # observed converging in ~8 iterations at one n_segments/omega
+    # combination and ~1000 at another -- a documented robustness gap, not
+    # a known correctness bug. See CLAUDE.md.
     # Stage 1: coarse, fast propagation at a large (capped) omega -- gets
     # the grid close without chasing tight precision at an undamped step.
     omega_warm = min(1.0, 10 * omega)

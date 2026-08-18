@@ -25,7 +25,7 @@ V_O = 0.0                       # air volumetric flow rate      [m3/s]
 COOLANT_TYPE = None             # e.g. 'Water'
 P_COOLANT = None                # [Pa]
 P_AIR = None                    # [Pa]
-PHI_AIR = None                  # inlet relative humidity [0-1] -- give at most one of PHI_AIR/X_AIR
+PHI_AIR = 0.3                  # inlet relative humidity [0-1] -- give at most one of PHI_AIR/X_AIR
 X_AIR = None                    # inlet humidity ratio [kg water/kg dry air]
 
 # --- Geometry: tube/fin dimensions ----------------------------------------

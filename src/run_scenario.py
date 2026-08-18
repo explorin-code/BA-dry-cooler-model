@@ -12,6 +12,7 @@ import seaborn as sns
 from src.solvers import solve_it_LMTD, solve_it_NTU, solve_it_cell
 from src.operating_conditions import OperatingConditions
 from src.dry_cooler_physics import get_geometry
+from src.economics import calc_total_power
 
 sns.set_theme(style="whitegrid", context="talk")
 
@@ -108,10 +109,27 @@ def format_output_conditions(label: str, T_coolant_out: float, T_air_out: float,
     return header + "\n" + temps_line + "\n" + coolant_line + "\n" + air_line
 
 
-def run_scenario(ops: OperatingConditions, label: str):
+def format_economics(W_pump, W_fan, m_water) -> str:
+    """Build the 'Economics' box: pump/fan/total power and water usage.
+    Any value left as None (not yet available) prints as 'n/a'."""
+    pump_str = f"{W_pump:7.2f} W" if W_pump is not None else "    n/a"
+    fan_str = f"{W_fan:7.2f} W" if W_fan is not None else "    n/a"
+    W_total = calc_total_power(W_pump, W_fan)
+    total_str = f"{W_total:7.2f} W" if W_total is not None else "    n/a"
+    water_str = f"{m_water * 1000:6.3f} g/s" if m_water is not None else "   n/a"
+
+    return (
+        f"Economics — Pump: {pump_str}   Fan: {fan_str}   "
+        f"Total: {total_str}   Water: {water_str}"
+    )
+
+
+def run_scenario(ops: OperatingConditions, label: str, W_pump=None, W_fan=None, m_water=None):
     """Solves LMTD/NTU/Cell against `ops`, builds the convergence figure,
     and returns it (does NOT call plt.show() -- the caller decides when
-    to display, so multiple scenarios' windows can be shown together)."""
+    to display, so multiple scenarios' windows can be shown together).
+    W_pump/W_fan/m_water are optional economics figures to display -- pass
+    None for whichever aren't computed yet."""
     geo = get_geometry()
 
     # --- Run all three solvers with the same omega, same ops/geo --------
@@ -146,6 +164,7 @@ def run_scenario(ops: OperatingConditions, label: str):
     output_text_lmtd = format_output_conditions("LMTD", Tc_lmtd, Ta_lmtd, Q_lmtd, diag_lmtd)
     output_text_ntu = format_output_conditions("NTU", Tc_ntu, Ta_ntu, Q_ntu, diag_ntu)
     output_text_cell = format_output_conditions("Cell", Tc_cell, Ta_cell, Q_cell, diag_cell)
+    economics_text = format_economics(W_pump, W_fan, m_water)
 
     # --- Colors: one hue per solver, air = lighter tone of the coolant hue ---
     color_lmtd_air = lighten_color(COLOR_LMTD, 0.55)
@@ -225,6 +244,13 @@ def run_scenario(ops: OperatingConditions, label: str):
         fontsize=8.2, family="monospace",
         bbox=dict(boxstyle="round,pad=0.45", facecolor="#f3ecf5", edgecolor=COLOR_NTU, alpha=0.9),
     )
+    fig.text(
+        0.5, 0.665,
+        economics_text,
+        ha="center", va="top",
+        fontsize=8.2, family="monospace",
+        bbox=dict(boxstyle="round,pad=0.45", facecolor="#e8eef5", edgecolor="#4a6fa5", alpha=0.9),
+    )
 
-    fig.tight_layout(rect=[0, 0, 1, 0.65])
+    fig.tight_layout(rect=[0, 0, 1, 0.62])
     return fig

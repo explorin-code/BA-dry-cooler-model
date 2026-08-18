@@ -37,6 +37,9 @@ def get_fluid_properties(ops, T_celsius: float, P: float) -> FluidState:
     return _get_fluid_properties_cached(ops.coolant_type, round(T_celsius, 2), P)
 
 
+# AI-REVIEW: HAPropsSI key conventions (Vha/Cha = per kg humid air, not per
+# kg dry air) never independently verified against a reference psychrometric
+# chart/table. See CLAUDE.md.
 @lru_cache(maxsize=None)
 def _get_air_properties_cached(X_rounded: float, T_rounded: float, P: float) -> FluidState:
     T_kelvin = T_rounded + 273.15
