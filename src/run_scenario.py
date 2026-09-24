@@ -6,24 +6,14 @@ ScenarioResult (see solvers.solve_scenario()). Pure display -- no solving.
 """
 
 import matplotlib.pyplot as plt
-import matplotlib.colors as mc
 import seaborn as sns
 
 from src.solvers import ScenarioResult
 from src.operating_conditions import OperatingConditions
 from src.economics import calc_total_power
+from src.plot_style import COLOR_LMTD, COLOR_NTU, COLOR_CELL, lighten_color
 
 sns.set_theme(style="whitegrid", context="talk")
-
-COLOR_LMTD = "#1b7837"  # green
-COLOR_NTU = "#762a83"   # purple
-COLOR_CELL = "#e08214"  # orange
-
-
-def lighten_color(color, factor=0.5):
-    """Blend `color` toward white. factor=0 -> unchanged, factor=1 -> white."""
-    r, g, b = mc.to_rgb(color)
-    return (r + (1 - r) * factor, g + (1 - g) * factor, b + (1 - b) * factor)
 
 
 def plot_with_tail(ax, series, max_len, color, label, linewidth=2.2, marker='o', markersize=3):
@@ -41,34 +31,27 @@ def plot_with_tail(ax, series, max_len, color, label, linewidth=2.2, marker='o',
 
 
 def format_input_conditions(ops: OperatingConditions) -> str:
-    """
-    Build the 'Input Conditions' string: inlet temps for both media plus
-    all three flow-rate representations (velocity / mass / volume flow)
-    for both media, regardless of which one was actually specified.
-    """
+    """Inlet temps plus all three flow-rate representations (w/ṁ/V̇) for
+    both media, regardless of which one was actually specified."""
     coolant_line = (
         f"Coolant ({ops.coolant_type}):  "
         f"T_in = {ops.T_coolant_in:5.1f} °C   "
-        f"w = {ops.w_coolant:6.3f} m/s   "
-        f"ṁ = {ops.m_coolant:6.3f} kg/s   "
+        f"w = {ops.u_i:6.3f} m/s   "
+        f"ṁ = {ops.m_dot_1:6.3f} kg/s   "
         f"V̇ = {ops.V_coolant:7.5f} m³/s"
     )
     air_line = (
-        f"Air (phi = {ops.phi_air:5.1f}):        "
+        f"Air (phi = {ops.phi:5.1f}):        "
         f"T_in = {ops.T_air_in:5.1f} °C   "
-        f"w = {ops.w_o:6.3f} m/s   "
-        f"ṁ = {ops.m_o:6.3f} kg/s   "
+        f"w = {ops.w_f:6.3f} m/s   "
+        f"ṁ = {ops.m_dot_2:6.3f} kg/s   "
         f"V̇ = {ops.V_o:7.5f} m³/s"
     )
     return coolant_line + "\n" + air_line
 
 
 def format_geometry_info(geo) -> str:
-    """
-    Build the geometric-info row for the input box: number of tube rows,
-    number of tubes per row, and the frontal (inflow) area expressed as
-    height x width = area.
-    """
+    """Tube rows/count and frontal (inflow) area as height x width = area."""
     return (
         f"Geometry:      "
         f"n_rows = {geo.n_rows:3d}   "
@@ -79,11 +62,7 @@ def format_geometry_info(geo) -> str:
 
 def format_output_conditions(label: str, T_coolant_out: float, T_air_out: float,
                               dQ: float, diagnostics: dict) -> str:
-    """
-    Build a per-solver 'Output' string: outlet temperatures, heat transfer
-    rate, and the final-iteration dimensionless groups (Pr/Re/Nu) for both
-    the coolant and air side.
-    """
+    """Outlet temps, dQ, and final-iteration Pr/Re/Nu for both sides."""
     header = f"{label} — Results"
     temps_line = (
         f"T_coolant_out = {T_coolant_out:5.2f} °C   "
@@ -94,7 +73,7 @@ def format_output_conditions(label: str, T_coolant_out: float, T_air_out: float,
         f"Coolant:  Pr = {diagnostics['Pr_coolant']:6.3f}   "
         f"Re = {diagnostics['Re_coolant']:8.1f}   "
         f"Nu = {diagnostics['Nu_coolant']:7.2f}   "
-        f"α_i = {diagnostics['alpha_i']:7.1f} W/m²K"
+        f"α_1 = {diagnostics['alpha_1']:7.1f} W/m²K"
     )
     air_line = (
         f"Air:      Pr = {diagnostics['Pr_air']:6.3f}   "
@@ -105,14 +84,14 @@ def format_output_conditions(label: str, T_coolant_out: float, T_air_out: float,
     return header + "\n" + temps_line + "\n" + coolant_line + "\n" + air_line
 
 
-def format_economics(W_pump, W_fan, m_water) -> str:
+def format_economics(P_p, P_f, m_dot_w) -> str:
     """Build the 'Economics' box: pump/fan/total power and water usage.
     Any value left as None (not yet available) prints as 'n/a'."""
-    pump_str = f"{W_pump:7.2f} W" if W_pump is not None else "    n/a"
-    fan_str = f"{W_fan:7.2f} W" if W_fan is not None else "    n/a"
-    W_total = calc_total_power(W_pump, W_fan)
-    total_str = f"{W_total:7.2f} W" if W_total is not None else "    n/a"
-    water_str = f"{m_water * 1000:6.3f} g/s" if m_water is not None else "   n/a"
+    pump_str = f"{P_p:7.2f} W" if P_p is not None else "    n/a"
+    fan_str = f"{P_f:7.2f} W" if P_f is not None else "    n/a"
+    P_total = calc_total_power(P_p, P_f)
+    total_str = f"{P_total:7.2f} W" if P_total is not None else "    n/a"
+    water_str = f"{m_dot_w * 1000:6.3f} g/s" if m_dot_w is not None else "   n/a"
 
     return (
         f"Economics — Pump: {pump_str}   Fan: {fan_str}   "
@@ -121,11 +100,11 @@ def format_economics(W_pump, W_fan, m_water) -> str:
 
 
 def plot_scenario(result: ScenarioResult, ops: OperatingConditions, geo, label: str, omega: float,
-                   W_pump=None, W_fan=None, m_water=None):
+                   P_p=None, P_f=None, m_dot_w=None):
     """Builds the convergence figure for an already-solved ScenarioResult
     and returns it (does NOT call plt.show() -- the caller decides when to
     display, so multiple scenarios' windows can be shown together).
-    W_pump/W_fan/m_water are optional economics figures to display -- pass
+    P_p/P_f/m_dot_w are optional economics figures to display -- pass
     None for whichever aren't computed yet."""
     lmtd, ntu, cell = result.lmtd, result.ntu, result.cell
 
@@ -143,7 +122,7 @@ def plot_scenario(result: ScenarioResult, ops: OperatingConditions, geo, label: 
     output_text_lmtd = format_output_conditions("LMTD", lmtd.T_coolant_out, lmtd.T_air_out, lmtd.dQ, lmtd.diagnostics)
     output_text_ntu = format_output_conditions("NTU", ntu.T_coolant_out, ntu.T_air_out, ntu.dQ, ntu.diagnostics)
     output_text_cell = format_output_conditions("Cell", cell.T_coolant_out, cell.T_air_out, cell.dQ, cell.diagnostics)
-    economics_text = format_economics(W_pump, W_fan, m_water)
+    economics_text = format_economics(P_p, P_f, m_dot_w)
 
     # --- Colors: one hue per solver, air = lighter tone of the coolant hue ---
     color_lmtd_air = lighten_color(COLOR_LMTD, 0.55)

@@ -15,9 +15,9 @@ class FluidState:
     rho: float                     # density                       [kg/m3]
     cp: float                      # specific heat capacity         [J/kg-K]
     lambda_: float                 # thermal conductivity           [W/m-K]
-    eta: float                     # dynamic viscosity              [Pa-s]
+    mu: float                      # dynamic viscosity              [Pa-s]
     Pr: float                      # Prandtl number                 [-]
-    phi_air: float = None          # local relative humidity [0-1] -- set by
+    phi: float = None              # local relative humidity [0-1] -- set by
                                     # get_air_properties; None for the coolant path
 
 
@@ -27,9 +27,9 @@ def _get_fluid_properties_cached(fluid: str, T_rounded: float, P: float) -> Flui
     rho     = CP.PropsSI('D',       'P', P, 'T', T_kelvin, fluid)
     cp      = CP.PropsSI('C',       'P', P, 'T', T_kelvin, fluid)
     lambda_ = CP.PropsSI('L',       'P', P, 'T', T_kelvin, fluid)
-    eta     = CP.PropsSI('V',       'P', P, 'T', T_kelvin, fluid)
+    mu      = CP.PropsSI('V',       'P', P, 'T', T_kelvin, fluid)
     Pr      = CP.PropsSI('Prandtl', 'P', P, 'T', T_kelvin, fluid)
-    return FluidState(rho, cp, lambda_, eta, Pr)
+    return FluidState(rho, cp, lambda_, mu, Pr)
 
 
 def get_fluid_properties(ops, T_celsius: float, P: float) -> FluidState:
@@ -47,29 +47,29 @@ def _get_air_properties_cached(X_rounded: float, T_rounded: float, P: float) -> 
     rho     = 1.0 / v_ha
     cp      = CP.HAPropsSI('Cha', 'T', T_kelvin, 'P', P, 'W', X_rounded)
     lambda_ = CP.HAPropsSI('K',   'T', T_kelvin, 'P', P, 'W', X_rounded)
-    eta     = CP.HAPropsSI('M',   'T', T_kelvin, 'P', P, 'W', X_rounded)
-    Pr      = cp * eta / lambda_
-    phi_air = CP.HAPropsSI('R',   'T', T_kelvin, 'P', P, 'W', X_rounded)
-    return FluidState(rho, cp, lambda_, eta, Pr, phi_air)
+    mu      = CP.HAPropsSI('mu',   'T', T_kelvin, 'P', P, 'W', X_rounded)
+    Pr      = cp * mu / lambda_
+    phi     = CP.HAPropsSI('R',   'T', T_kelvin, 'P', P, 'W', X_rounded)
+    return FluidState(rho, cp, lambda_, mu , Pr, phi)
 
 
 def get_air_properties(ops, T_celsius: float, P: float) -> FluidState:
     """Humid-air properties at (P, T), using the fixed inlet humidity ratio
-    ops.X_air (resolved once in OperatingConditions.__post_init__)."""
-    return _get_air_properties_cached(round(ops.X_air, 6), round(T_celsius, 2), P)
+    ops.X (resolved once in OperatingConditions.__post_init__)."""
+    return _get_air_properties_cached(round(ops.X, 6), round(T_celsius, 2), P)
 
 
-def relative_to_absolute_humidity(T_celsius: float, P: float, phi_air: float) -> float:
+def relative_to_absolute_humidity(T_celsius: float, P: float, phi: float) -> float:
     """Converts relative humidity [0-1] to humidity ratio [kg water/kg dry
     air] via HAPropsSI. Used once by OperatingConditions.__post_init__ to
-    resolve phi_air into the canonical X_air."""
+    resolve phi into the canonical X."""
     T_kelvin = T_celsius + 273.15
-    return CP.HAPropsSI('W', 'T', T_kelvin, 'P', P, 'R', phi_air)
+    return CP.HAPropsSI('W', 'T', T_kelvin, 'P', P, 'R', phi)
 
 
-def absolute_to_relative_humidity(T_celsius: float, P: float, X_air: float) -> float:
+def absolute_to_relative_humidity(T_celsius: float, P: float, X: float) -> float:
     """Converts humidity ratio [kg water/kg dry air] to relative humidity
     [0-1] via HAPropsSI. Used once by OperatingConditions.__post_init__ to
-    resolve X_air into phi_air for display/diagnostics."""
+    resolve X into phi for display/diagnostics."""
     T_kelvin = T_celsius + 273.15
-    return CP.HAPropsSI('R', 'T', T_kelvin, 'P', P, 'W', X_air)
+    return CP.HAPropsSI('R', 'T', T_kelvin, 'P', P, 'W', X)

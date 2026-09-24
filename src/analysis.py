@@ -12,7 +12,7 @@ from dataclasses import dataclass
 import numpy as np
 
 from src.fluid_properties import get_fluid_properties, get_air_properties
-from src.solvers import calc_P
+from src.solvers import calc_P, cell_path_order
 
 
 @dataclass
@@ -35,8 +35,8 @@ def calc_lmtd_profile(lmtd_result, ops, geo, n_points: int = 200) -> ProfileData
     T_air_mean = (ops.T_air_in + lmtd_result.T_air_out) / 2.0
     coolant_state = get_fluid_properties(ops, T_coolant_mean, ops.P_coolant)
     air_state = get_air_properties(ops, T_air_mean, ops.P_air)
-    W_coolant = ops.m_coolant * coolant_state.cp
-    W_air = ops.m_o * air_state.cp
+    W_coolant = ops.m_dot_1 * coolant_state.cp
+    W_air = ops.m_dot_2 * air_state.cp
 
     x_frac = np.linspace(0.0, 1.0, n_points)
     ratio = dT_cold / dT_hot
@@ -64,8 +64,8 @@ def calc_ntu_profile(ntu_result, ops, geo) -> ProfileData:
     coolant_state = get_fluid_properties(ops, T_coolant_mean, ops.P_coolant)
     air_state = get_air_properties(ops, T_air_mean, ops.P_air)
 
-    W1 = ops.m_coolant * coolant_state.cp
-    W2 = ops.m_o * air_state.cp
+    W1 = ops.m_dot_1 * coolant_state.cp
+    W2 = ops.m_dot_2 * air_state.cp
     R1 = W1 / W2
     A_run = geo.A * geo.n_tubes
     NTU1 = (ntu_result.k * A_run) / W1
@@ -73,12 +73,10 @@ def calc_ntu_profile(ntu_result, ops, geo) -> ProfileData:
     P2 = P1 * R1
 
     def march(T_a0_guess):
-        """Marches coolant-direction (j=0 coolant inlet -> j=n coolant outlet),
-        given a guessed air temperature at the coolant-inlet boundary (T_a[0] --
-        physically air's OUTLET there, since this is counterflow). T_a[j+1] is
-        solved from row j's own air-side relation rather than assumed known,
-        which is what makes this a genuine counterflow march instead of the
-        parallel-flow one from before."""
+        """Marches coolant-direction (j=0 inlet -> j=n outlet) from a guessed
+        air temperature at the coolant-inlet boundary (T_a[0] -- physically
+        air's OUTLET there, since this is counterflow); T_a[j+1] is solved
+        from row j's own air-side relation, not assumed known."""
         T_c = np.zeros(n + 1)
         T_a = np.zeros(n + 1)
         T_c[0] = ops.T_coolant_in
@@ -110,22 +108,13 @@ def calc_ntu_profile(ntu_result, ops, geo) -> ProfileData:
     return ProfileData(x_frac=x_frac, T_coolant=T_c, T_air=T_a, k=k_profile, dQdL=dQdL)
 
 
-def _coolant_path_order(n_rows, n_segments):
-    """(r, s) coordinates in coolant flow order -- mirrors _relax_cell_grid's
-    own Pass 1 traversal exactly, so this is provably the same path the
-    solver itself walks, not a separate guess at it."""
-    path = []
-    for r in range(n_rows - 1, -1, -1):
-        s_range = range(0, n_segments) if r % 2 == 0 else range(n_segments - 1, -1, -1)
-        for s in s_range:
-            path.append((r, s))
-    return path
-
-
 # Cell's profile is a genuine reduction, not a reconstruction -- see
 # solve_it_cell's own diagnostic pass for where this data actually comes from.
+# path comes from solvers.cell_path_order -- the SAME function
+# _relax_cell_grid's Pass 1 uses to drive its own loop, so this is provably
+# the same path the solver itself walks, not a separate guess at it.
 def calc_cell_profile(cell_result, geo, n_segments: int) -> ProfileData:
-    path = _coolant_path_order(geo.n_rows, n_segments)
+    path = cell_path_order(geo.n_rows, n_segments)
     n_points = len(path)
 
     T_coolant = np.array([cell_result.T_c_grid[r, :, s].mean() for r, s in path])

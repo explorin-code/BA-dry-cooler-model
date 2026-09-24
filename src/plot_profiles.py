@@ -15,62 +15,17 @@ import matplotlib.pyplot as plt
 
 from src.solvers import ScenarioResult
 from src.analysis import calc_lmtd_profile, calc_ntu_profile, calc_cell_profile
-from src.run_scenario import COLOR_LMTD, COLOR_NTU, COLOR_CELL, lighten_color
+from src.plot_style import COLOR_LMTD, COLOR_NTU, COLOR_CELL, lighten_color, _nice_ticks
 
 COLOR_K = "#4d4d4d"       # dark gray -- neutral, not tied to hot/cold identity
 COLOR_DQDL = "#1f77b4"    # blue -- distinct from the LMTD/NTU/Cell palette
 
 
 def _data_range(*arrays):
-    """Plain min/max across several arrays -- no padding; _nice_ticks below
-    adds its own margin by rounding outward to nice numbers."""
+    """Plain min/max across several arrays -- no padding; _nice_ticks
+    (plot_style.py) adds its own margin by rounding outward to nice numbers."""
     values = np.concatenate([np.asarray(a).ravel() for a in arrays])
     return float(values.min()), float(values.max())
-
-
-_NICE_FRACTIONS = [1, 2, 2.5, 5, 10]
-
-
-def _nice_step(raw_step):
-    """Rounds raw_step up to the nearest 'nice' number (1/2/2.5/5/10 x
-    10^n) -- so tick labels are whole/round numbers, not arbitrary fractions."""
-    if raw_step <= 0:
-        return 1.0
-    exponent = np.floor(np.log10(raw_step))
-    fraction = raw_step / 10**exponent
-    for f in _NICE_FRACTIONS:
-        if fraction <= f:
-            return f * 10**exponent
-    return 10 * 10**exponent
-
-
-def _next_nice_step(step):
-    """The next larger step in the same 1/2/2.5/5/10 x 10^n sequence."""
-    exponent = np.floor(np.log10(step))
-    fraction = round(step / 10**exponent, 6)
-    idx = _NICE_FRACTIONS.index(fraction) if fraction in _NICE_FRACTIONS else 0
-    if idx + 1 < len(_NICE_FRACTIONS):
-        return _NICE_FRACTIONS[idx + 1] * 10**exponent
-    return _NICE_FRACTIONS[0] * 10**(exponent + 1)
-
-
-def _nice_ticks(data_lo, data_hi, n_intervals: int = 4):
-    """Exactly n_intervals+1 evenly spaced NICE (round-number) ticks that
-    fully cover [data_lo, data_hi]. Fixing n_intervals the same for every
-    axis in a panel is what makes unrelated quantities (temperature, k,
-    dQ/dL) land their own round-number ticks on the same horizontal lines
-    -- the counts match even though the actual numbers don't."""
-    span = data_hi - data_lo
-    if span <= 0:
-        span = abs(data_hi) if data_hi != 0 else 1.0
-    step = _nice_step(span / n_intervals)
-    for _ in range(4):   # a couple of nice-step bumps is always enough in practice
-        nice_lo = np.floor(data_lo / step) * step
-        ticks = nice_lo + step * np.arange(n_intervals + 1)
-        if ticks[-1] >= data_hi - 1e-9:
-            return ticks
-        step = _next_nice_step(step)
-    return ticks
 
 
 def _plot_solver_panel(ax_T, profile, color, T_ticks, k_ticks, dQdL_ticks, title):

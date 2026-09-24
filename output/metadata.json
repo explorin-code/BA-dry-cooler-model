@@ -2,31 +2,67 @@
     "processed_files": [],
     "skipped_files": [
         {
-            "path": "/Users/Lorin/VS Code/BA-dry-cooler-model/src/solvers.py",
+            "path": "/Users/Lorin/Git/BA-dry-cooler-model/src/solver_settings.py",
             "reason": "Error processing file: 'list' object has no attribute 'split'"
         },
         {
-            "path": "/Users/Lorin/VS Code/BA-dry-cooler-model/src/fluid_properties.py",
+            "path": "/Users/Lorin/Git/BA-dry-cooler-model/src/plot_style.py",
             "reason": "Error processing file: 'list' object has no attribute 'split'"
         },
         {
-            "path": "/Users/Lorin/VS Code/BA-dry-cooler-model/src/dry_cooler_physics.py",
+            "path": "/Users/Lorin/Git/BA-dry-cooler-model/src/pressure_drop.py",
             "reason": "Error processing file: 'list' object has no attribute 'split'"
         },
         {
-            "path": "/Users/Lorin/VS Code/BA-dry-cooler-model/src/heat_transfer_core.py",
+            "path": "/Users/Lorin/Git/BA-dry-cooler-model/src/analysis.py",
             "reason": "Error processing file: 'list' object has no attribute 'split'"
         },
         {
-            "path": "/Users/Lorin/VS Code/BA-dry-cooler-model/src/utils.py",
+            "path": "/Users/Lorin/Git/BA-dry-cooler-model/src/plot_profiles.py",
             "reason": "Error processing file: 'list' object has no attribute 'split'"
         },
         {
-            "path": "/Users/Lorin/VS Code/BA-dry-cooler-model/src/parameters.py",
+            "path": "/Users/Lorin/Git/BA-dry-cooler-model/src/solvers.py",
             "reason": "Error processing file: 'list' object has no attribute 'split'"
         },
         {
-            "path": "/Users/Lorin/VS Code/BA-dry-cooler-model/src/economics.py",
+            "path": "/Users/Lorin/Git/BA-dry-cooler-model/src/fluid_properties.py",
+            "reason": "Error processing file: 'list' object has no attribute 'split'"
+        },
+        {
+            "path": "param_loader.py",
+            "reason": "Unchanged file (hash match)"
+        },
+        {
+            "path": "/Users/Lorin/Git/BA-dry-cooler-model/src/dry_cooler_physics.py",
+            "reason": "Error processing file: 'list' object has no attribute 'split'"
+        },
+        {
+            "path": "/Users/Lorin/Git/BA-dry-cooler-model/src/heat_transfer_core.py",
+            "reason": "Error processing file: 'list' object has no attribute 'split'"
+        },
+        {
+            "path": "/Users/Lorin/Git/BA-dry-cooler-model/src/run_scenario.py",
+            "reason": "Error processing file: 'list' object has no attribute 'split'"
+        },
+        {
+            "path": "/Users/Lorin/Git/BA-dry-cooler-model/src/scenario_pipeline.py",
+            "reason": "Error processing file: 'list' object has no attribute 'split'"
+        },
+        {
+            "path": "/Users/Lorin/Git/BA-dry-cooler-model/src/operating_conditions.py",
+            "reason": "Error processing file: 'list' object has no attribute 'split'"
+        },
+        {
+            "path": "/Users/Lorin/Git/BA-dry-cooler-model/src/precooling.py",
+            "reason": "Error processing file: 'list' object has no attribute 'split'"
+        },
+        {
+            "path": "/Users/Lorin/Git/BA-dry-cooler-model/src/parameters.py",
+            "reason": "Error processing file: 'list' object has no attribute 'split'"
+        },
+        {
+            "path": "/Users/Lorin/Git/BA-dry-cooler-model/src/economics.py",
             "reason": "Error processing file: 'list' object has no attribute 'split'"
         }
     ],
