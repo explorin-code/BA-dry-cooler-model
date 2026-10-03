@@ -63,3 +63,99 @@ def _nice_ticks(data_lo, data_hi, n_intervals: int = 4):
             return ticks
         step = _next_nice_step(step)
     return ticks
+
+
+# =============================================================================
+# Column-aligned text boxes (cooler-results figure)
+# =============================================================================
+# Mathtext subscripts ($T_{c,o}$) are drawn in a different font than the
+# surrounding monospace text, so aligning columns by padding strings with
+# spaces breaks. draw_text_grid instead places every cell as its own text at
+# measured column positions. Positions are in points relative to an anchor
+# in axes coordinates, so the layout survives figure resizing.
+
+def _text_width_pt(ax, s: str, fontsize: float) -> float:
+    """Rendered width of s in points (exact, incl. spaces and mathtext),
+    measured with a temporary text on the figure's renderer."""
+    if not s:
+        return 0.0
+    fig = ax.figure
+    probe = ax.text(0, 0, s, fontsize=fontsize, family='monospace')
+    width_px = probe.get_window_extent(renderer=fig.canvas.get_renderer()).width
+    probe.remove()
+    return width_px * 72 / fig.dpi
+
+
+def draw_text_grid(ax, x_anchor, y_anchor, blocks, facecolor, edgecolor, fontsize=11,
+                   label_gap_pt=4.0, pair_gap_pt=16.0, line_spacing=1.6, pad_pt=10.0):
+    """Draws a rounded box of column-aligned text centered at (x_anchor,
+    y_anchor) in axes coordinates. blocks: list of blocks stacked
+    vertically; each block is a list of rows; a row is either a list of
+    cells or a plain string spanning the whole box (centered). Cell rows
+    are [row label, name, value, name, value, ...]: a small gap follows
+    each name ("T ="), a large one each value and the row label.
+    fontsize is the maximum: the box shrinks its font to fit the axes'
+    width, and refits whenever the window is resized."""
+    from matplotlib.patches import FancyBboxPatch
+    from matplotlib.transforms import Affine2D, ScaledTranslation
+
+    fig = ax.figure
+    transform = (Affine2D().scale(1 / 72) + fig.dpi_scale_trans
+                 + ScaledTranslation(x_anchor, y_anchor, ax.transAxes))
+    artists = []
+
+    def layout(fs):
+        """Column positions per block and the total box width, at font size fs."""
+        scale = fs / fontsize
+        layouts, total_width = [], 0.0
+        for block in blocks:
+            n_cols = max((len(row) for row in block if not isinstance(row, str)), default=0)
+            widths = [0.0] * n_cols
+            for row in block:
+                if not isinstance(row, str):
+                    for j, cell in enumerate(row):
+                        widths[j] = max(widths[j], _text_width_pt(ax, cell, fs))
+            gaps = [(label_gap_pt if j % 2 == 1 else pair_gap_pt) * scale for j in range(n_cols)]
+            x_cols = [sum(widths[:j]) + sum(gaps[:j]) for j in range(n_cols)]
+            block_width = (x_cols[-1] + widths[-1]) if n_cols else 0.0
+            span_width = max((_text_width_pt(ax, row, fs) for row in block if isinstance(row, str)),
+                             default=0.0)
+            total_width = max(total_width, block_width, span_width)
+            layouts.append(x_cols)
+        return layouts, total_width
+
+    def draw(*_):
+        for artist in artists:
+            artist.remove()
+        artists.clear()
+
+        # Fit the font to the axes' current width (never larger than fontsize).
+        _, natural_width = layout(fontsize)
+        available = ax.get_window_extent().width * 72 / fig.dpi - 2 * pad_pt
+        fs = fontsize * min(1.0, available / natural_width) if natural_width > 0 else fontsize
+        layouts, total_width = layout(fs)
+        pad = pad_pt * fs / fontsize
+
+        line_height = fs * line_spacing
+        height = sum(len(block) for block in blocks) * line_height
+        x_left, y_top = -total_width / 2, height / 2
+        row_index = 0
+        for block, x_cols in zip(blocks, layouts):
+            for row in block:
+                y = y_top - (row_index + 0.72) * line_height          # text baseline
+                if isinstance(row, str):
+                    artists.append(ax.text(0, y, row, transform=transform, ha='center', va='baseline',
+                                           fontsize=fs, family='monospace', clip_on=False))
+                else:
+                    for x, cell in zip(x_cols, row):
+                        artists.append(ax.text(x_left + x, y, cell, transform=transform, ha='left',
+                                               va='baseline', fontsize=fs, family='monospace', clip_on=False))
+                row_index += 1
+        box = FancyBboxPatch((x_left - pad, -height / 2 - pad / 2), total_width + 2 * pad, height + pad,
+                             boxstyle="round,pad=0,rounding_size=6", transform=transform,
+                             facecolor=facecolor, edgecolor=edgecolor, alpha=0.95, clip_on=False, zorder=0)
+        ax.add_patch(box)
+        artists.append(box)
+
+    draw()
+    fig.canvas.mpl_connect('resize_event', draw)

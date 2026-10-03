@@ -38,8 +38,8 @@ class Geometry:
     d_i: float                     # tube inner diameter [m]
     n_tubes: int                   # number of tubes
     n_rows: int                    # number of tube rows
-    s_1: float                     # tube pitch, transverse [m]
-    s_2: float                     # tube pitch, longitudinal [m]
+    P_t: float                     # tube pitch, transverse [m]
+    P_l: float                     # tube pitch, longitudinal [m]
     height: float                  # cooler height == single tube-pass length [m]
     pipe_material: str = 'Copper'     # pipe material
     fin_material: str = 'Aluminum'      # fin material
@@ -54,20 +54,20 @@ class Geometry:
     @property
     def n_R(self) -> float:
         """Fins per meter, derived from fin pitch (spacing + thickness)."""
-        return 1.0 / self.t_R
+        return 1.0 / self.F_p
 
     @property
     def fins_per_pipe(self) -> int:
         return int(self.n_R * self.height)
 
     @property
-    def t_R(self) -> float:
+    def F_p(self) -> float:
         """Fin pitch [m]."""
         return self.t_s + self.delta_R
 
     @property
     def width(self) -> float:
-        return self.n_tubes * self.s_1
+        return self.n_tubes * self.P_t
 
     @property
     def inflow_cross_section(self) -> float:
@@ -87,7 +87,7 @@ class Geometry:
     @property
     def A_R(self) -> float:
         """Fin surface area on one tube [m²]."""
-        return 2 * (self.s_1 * self.s_2 - (np.pi * self.d_a**2) / 4) * self.fins_per_pipe
+        return 2 * (self.P_t * self.P_l - (np.pi * self.d_a**2) / 4) * self.fins_per_pipe
 
     @property
     def A_G(self) -> float:
@@ -111,16 +111,19 @@ class Geometry:
 
     @property
     def Ao_Ae_ratio(self) -> float:
-        """Ratio of total to minimum airflow cross-section [-].
-        Source: [not given in original notes -- TODO: find & fill in].
-        Checked 2026-08 against VDI Wärmeatlas Chapter M1 without finding
-        it there; next leads are L1.5 or N4 (Kühltürme). Likely lead: this
-        is the inverse of Kays & London's sigma = Ac/Afr for a plate-fin
-        core (min. gap transverse), with d_c as the blocking diameter.
-        Uses d_c (== d_a while h_collar = 0) since that is what actually
-        blocks the flow between fins."""
-        numerator = self.s_1 * (self.t_s + self.delta_R)
-        denominator = (self.s_1 - self.d_c) * self.t_s
+        """Ratio of frontal to narrowest airflow cross-section A_o/A_e [-].
+        Source: VDI Waermeatlas, Chapter M1, p. 1689, worked example
+        ("Verengter Stroemungsquerschnitt"), for circular fins:
+            A_o/A_e = t_q (a + s) / ((t_q - d) a + (t_q - D) s)
+        with t_q = P_t, a = fin spacing t_s, s = fin thickness delta_R.
+        Adapted to continuous plate fins: the fin spans the whole transverse
+        pitch (D = t_q), so the fin-band term (t_q - D) s vanishes. Equals
+        Kays & London's 1/sigma (sigma = A_c/A_fr). Uses d_c (== d_a while
+        h_collar = 0) as the blocking diameter. Only the transverse gap is
+        considered -- for staggered banks the diagonal gap can be narrower
+        at small P_l (not the case for the current geometry)."""
+        numerator = self.P_t * (self.t_s + self.delta_R)
+        denominator = (self.P_t - self.d_c) * self.t_s
         return numerator / denominator
 
     @property
@@ -164,8 +167,8 @@ def get_geometry() -> Geometry:
         'd_i': 'D_TUBE_INNER',
         'n_tubes': 'N_TUBES',
         'n_rows': 'N_ROWS',
-        's_1': 'S_1',
-        's_2': 'S_2',
+        'P_t': 'PITCH_TRANSVERSE',
+        'P_l': 'PITCH_LONGITUDINAL',
         'height': 'HEIGHT',
         'pipe_material': 'PIPE_MATERIAL',
         'fin_material': 'FIN_MATERIAL',

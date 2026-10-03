@@ -1,9 +1,12 @@
 import dataclasses
+import logging
 
 import CoolProp.CoolProp as CP
 from scipy.optimize import brentq
 
 import src.parameters as parameters
+
+logger = logging.getLogger(__name__)
 
 
 def calc_eta_B ():
@@ -23,9 +26,9 @@ def precooling_decider(cell_result):
     target = parameters.T_COOLANT_TARGET_OUT
     decision = cell_result.T_coolant_out > target
     comparison = ">" if decision else "<="
-    print(f"[Decider] Cell T_coolant_out = {cell_result.T_coolant_out:.2f} °C {comparison} "
-          f"target = {target:.2f} °C -> "
-          f"{'precooling engaged' if decision else 'no precooling needed'}")
+    logger.info("[Decider] Cell T_coolant_out = %.2f °C %s target = %.2f °C -> %s",
+                cell_result.T_coolant_out, comparison, target,
+                'precooling engaged' if decision else 'no precooling needed')
     return decision
 
 def calc_X(T_wb_guess, P_air, phi):

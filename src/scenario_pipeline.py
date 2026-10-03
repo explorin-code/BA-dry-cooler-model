@@ -9,7 +9,21 @@ result rather than re-solving -- do the same for the precooled scenario.
 This module exists so main.py doesn't have to import every subsystem
 directly: main.py just calls run_scenarios() and decides when to show the
 resulting figures.
+
+Run modes (run_modes.py, set in parameters.py or by main.py's flags):
+  insight_mode   -- per-iteration progress + detailed results (DEBUG log
+                    level); a short summary per scenario is always logged
+  plot_results     -- per scenario: cooler-results figure (inputs, economics,
+                      per-solver results next to their spatial profiles)
+  plot_convergence -- per scenario: convergence + iteration-error figure
+  benchmark_mode   -- caching benchmark (ambient operating point) +
+                      solver-performance figure
+  resolution_mode  -- resolution sweep (ambient operating point) + figure
 """
+
+import logging
+
+import src.parameters as parameters
 
 from src.operating_conditions import get_operating_conditions
 from src.dry_cooler_physics import get_geometry
@@ -19,40 +33,74 @@ from src.solver_settings import get_solver_settings
 from src.precooling import calc_precooler
 from src.pressure_drop import calc_delta_p_coolant, calc_delta_p_bundle_air, calc_delta_p_pad, calc_delta_p_air_total
 from src.economics import calc_pump_power, calc_fan_power, calc_water_usage
-from src.run_scenario import plot_scenario
-from src.plot_profiles import plot_profiles
+from src.run_scenario import (format_input_conditions, format_geometry_info,
+                              format_output_conditions, format_economics, calc_pinch, calc_deviation)
+from src.run_modes import get_run_modes
+
+logger = logging.getLogger(__name__)
 
 
-def _solve_air_side_power(geo, ops, T_air_out):
+def _solve_air_side_power(geo, ops, T_air_out, through_pad: bool):
     """Air-side pressure drop -> fan power for one scenario (ambient or
     precooled) -- depends on ops, so called once per scenario. T_air_out
     comes from the Cell result, the same reference the precooling decider
-    uses. The pad is physically installed in both scenarios, so its ΔP
-    always counts."""
+    uses. through_pad: whether the air passes the adiabatic pad (always when
+    precooling; in dry operation per parameters.PAD_IN_DRY_AIR_PATH, since
+    some designs have a separate bypass inlet)."""
     air_in = get_air_properties(ops, ops.T_air_in, ops.P_air)
     air_out = get_air_properties(ops, T_air_out, ops.P_air)
     air_mean = get_air_properties(ops, (ops.T_air_in + T_air_out) / 2.0, ops.P_air)
 
     delta_p_bundle = calc_delta_p_bundle_air(geo, ops, air_in, air_out, air_mean)
-    delta_p_air = calc_delta_p_air_total(delta_p_bundle, calc_delta_p_pad())
+    delta_p_air = calc_delta_p_air_total(delta_p_bundle, calc_delta_p_pad() if through_pad else None)
     return calc_fan_power(ops, air_in, air_out, delta_p_air)
 
 
-def run_scenarios():
-    """Builds and returns nothing -- solving and plotting are both
-    side-effecting (plot_scenario/plot_profiles build matplotlib figures
-    but don't show them). Caller decides when to call plt.show()."""
-    # Central under-relaxation factor / cell resolution -- see parameters.py
-    # (CENTRAL_OMEGA, CELL_N_SEGMENTS). All three solvers get the SAME omega
-    # so the step size is directly comparable between them.
+def _log_scenario_summary(label, result, ops, geo, P_p, P_f, m_dot_w=None):
+    """Always (INFO): one line per solver -- Q, outlet temperatures, pinch,
+    deviation from Cell, iterations, wall time -- plus power/water.
+    Insight mode (DEBUG): additionally the full input/result text boxes of
+    the results figure, so nothing is lost without plots."""
+    cell = result.cell
+    pinch_cell = calc_pinch(cell.T_coolant_out, ops.T_air_in)
+    logger.info("[%s]", label)
+    for name, r in (("LMTD", result.lmtd), ("NTU", result.ntu), ("Cell", cell)):
+        pinch = calc_pinch(r.T_coolant_out, ops.T_air_in)
+        vs_cell = ("" if r is cell else
+                   f"  (vs. Cell: Q {calc_deviation(r.dQ, cell.dQ):+5.2f} %, "
+                   f"pinch {calc_deviation(pinch, pinch_cell):+5.2f} %)")
+        logger.info("  %-4s Q = %6.2f kW   T_coolant_out = %5.2f °C   T_air_out = %5.2f °C   "
+                    "pinch = %5.2f K   k = %5.2f W/m²K   %3d it   %8.1f ms%s",
+                    name, r.dQ / 1000, r.T_coolant_out, r.T_air_out, pinch, r.k,
+                    len(r.history_hot), r.solve_time * 1e3, vs_cell)
+    logger.info("  %s", format_economics(P_p, P_f, m_dot_w))
+
+    logger.debug("\n%s\n%s", format_input_conditions(ops), format_geometry_info(geo))
+    for name, r in (("LMTD", result.lmtd), ("NTU", result.ntu), ("Cell", cell)):
+        logger.debug("\n%s", format_output_conditions(name, r, ops.T_air_in,
+                                                       reference=None if r is cell else cell))
+
+
+def run_scenarios(modes=None):
+    """Solves the ambient scenario and, if the decider engages precooling,
+    the precooled one. Figures (plot_results / benchmark_mode) are built
+    but not shown -- the caller decides when to call plt.show().
+    Returns a dict of the solved results for programmatic use."""
+    if modes is None:
+        modes = get_run_modes()
+
+    # Central under-relaxation factor / Cell and NTU resolution -- see parameters.py
+    # (CENTRAL_OMEGA, CELL_N_SEGMENTS, NTU_N_ELEMENTS). LMTD and NTU share CENTRAL_OMEGA;
+    # Cell uses its own CELL_OMEGA (see solve_it_cell for why).
     settings = get_solver_settings()
     CENTRAL_OMEGA = settings.central_omega
     CELL_N_SEGMENTS = settings.cell_n_segments
+    NTU_N_ELEMENTS = settings.ntu_n_elements
 
     geo = get_geometry()
     ops_ambient = get_operating_conditions(geo=geo)
 
-    result_ambient = solve_scenario(ops_ambient, geo, omega=CENTRAL_OMEGA, n_segments=CELL_N_SEGMENTS)
+    result_ambient = solve_scenario(ops_ambient, geo, omega=CENTRAL_OMEGA, n_segments=CELL_N_SEGMENTS, n_elements=NTU_N_ELEMENTS)
 
     # Coolant-side pressure drop / pump power -- independent of precooling,
     # since the coolant loop is unaffected by the air-side pad.
@@ -60,20 +108,56 @@ def run_scenarios():
     delta_p_coolant = calc_delta_p_coolant(geo, ops_ambient, coolant_state)
     P_p = calc_pump_power(ops_ambient, coolant_state, delta_p_coolant)
 
-    P_f_ambient = _solve_air_side_power(geo, ops_ambient, result_ambient.cell.T_air_out)
+    # Ambient = dry operation: pad ΔP only if the dry air path runs through the pad.
+    P_f_ambient = _solve_air_side_power(geo, ops_ambient, result_ambient.cell.T_air_out,
+                                        through_pad=parameters.PAD_IN_DRY_AIR_PATH)
 
-    plot_scenario(result_ambient, ops_ambient, geo, label="Ambient (no precooling)",
-                  omega=CENTRAL_OMEGA, P_p=P_p, P_f=P_f_ambient)
-    plot_profiles(result_ambient, ops_ambient, geo, label="Ambient (no precooling)", n_segments=CELL_N_SEGMENTS)
+    label_ambient = "Ambient (no precooling)"
+    _log_scenario_summary(label_ambient, result_ambient, ops_ambient, geo, P_p, P_f_ambient)
+
+    results = {'geo': geo, 'ambient': {'label': label_ambient, 'ops': ops_ambient, 'result': result_ambient,
+                                       'P_p': P_p, 'P_f': P_f_ambient, 'm_dot_w': None},
+               'precooled': None}
 
     ops_final, was_precooled = calc_precooler(ops_ambient, result_ambient)
     if was_precooled:
         m_dot_w = calc_water_usage(ops_ambient, ops_final)
 
-        result_final = solve_scenario(ops_final, geo, omega=CENTRAL_OMEGA, n_segments=CELL_N_SEGMENTS)
+        result_final = solve_scenario(ops_final, geo, omega=CENTRAL_OMEGA, n_segments=CELL_N_SEGMENTS, n_elements=NTU_N_ELEMENTS)
 
-        P_f_final = _solve_air_side_power(geo, ops_final, result_final.cell.T_air_out)
+        P_f_final = _solve_air_side_power(geo, ops_final, result_final.cell.T_air_out, through_pad=True)
 
-        plot_scenario(result_final, ops_final, geo, label="Precooled",
-                      omega=CENTRAL_OMEGA, P_p=P_p, P_f=P_f_final, m_dot_w=m_dot_w)
-        plot_profiles(result_final, ops_final, geo, label="Precooled", n_segments=CELL_N_SEGMENTS)
+        _log_scenario_summary("Precooled", result_final, ops_final, geo, P_p, P_f_final, m_dot_w)
+        results['precooled'] = {'label': "Precooled", 'ops': ops_final, 'result': result_final,
+                                'P_p': P_p, 'P_f': P_f_final, 'm_dot_w': m_dot_w}
+
+    # Benchmarks last, on their own fresh runs (ambient operating point) --
+    # imported lazily so normal runs don't pay for them.
+    if modes.benchmark_mode or modes.resolution_mode:
+        results['benchmark'] = {}
+    if modes.benchmark_mode:
+        from src.benchmark_solvers import run_cache_benchmark
+        results['benchmark']['cache'] = run_cache_benchmark(ops_ambient, geo, settings, modes)
+    if modes.resolution_mode:
+        from src.benchmark_solvers import run_resolution_benchmark
+        results['benchmark']['resolution'] = run_resolution_benchmark(ops_ambient, geo, settings, modes)
+
+    # --- Figures (built but not shown; the caller calls plt.show()) ----------
+    scenarios = [results['ambient']] + ([results['precooled']] if results['precooled'] else [])
+    if modes.plot_results:
+        from src.plot_profiles import plot_cooler_results
+        for sc in scenarios:
+            plot_cooler_results(sc['result'], sc['ops'], geo, sc['label'], n_segments=CELL_N_SEGMENTS,
+                                n_elements=NTU_N_ELEMENTS, P_p=sc['P_p'], P_f=sc['P_f'], m_dot_w=sc['m_dot_w'])
+    if modes.plot_convergence:
+        from src.plot_solver import plot_convergence
+        for sc in scenarios:
+            plot_convergence(sc['result'], sc['ops'], sc['label'], settings)
+    if modes.benchmark_mode:
+        from src.plot_solver import plot_solver_performance
+        plot_solver_performance(label_ambient, settings, results['benchmark']['cache'])
+    if modes.resolution_mode:
+        from src.benchmark_solvers import plot_resolution
+        plot_resolution(results['benchmark']['resolution'], label_ambient)
+
+    return results

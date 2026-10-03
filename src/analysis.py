@@ -3,16 +3,16 @@ analysis.py
 ============
 Reconstructs a comparable spatial profile (temperature, k, dQ/dL along the
 coolant's flow path) for each solver from its already-converged output.
-Cell's profile is a genuine reduction of data it already computed. LMTD's
-and NTU's are post-hoc reconstructions from their own converged scalars --
-NOT something either solver actually tracks internally. See CLAUDE.md.
+Cell's and NTU's profiles are genuine reductions of the element/cell grids
+they already computed. LMTD's is a post-hoc reconstruction from its own
+converged scalars -- NOT something it tracks internally. See CLAUDE.md.
 """
 
 from dataclasses import dataclass
 import numpy as np
 
 from src.fluid_properties import get_fluid_properties, get_air_properties
-from src.solvers import calc_P, cell_path_order
+from src.solvers import cell_path_order
 
 
 @dataclass
@@ -53,59 +53,22 @@ def calc_lmtd_profile(lmtd_result, ops, geo, n_points: int = 200) -> ProfileData
     return ProfileData(x_frac=x_frac, T_coolant=T_coolant, T_air=T_air, k=k_profile, dQdL=dQdL)
 
 
-# AI-REVIEW: row-by-row reconstruction by cascading NTU's own (constant)
-# per-row P1 forward from the known inlet conditions -- not something
-# solve_it_NTU computes; it only ever evaluates the closed-form combination.
-# Self-checked against that closed form below. See CLAUDE.md.
-def calc_ntu_profile(ntu_result, ops, geo) -> ProfileData:
-    n = geo.n_rows
-    T_coolant_mean = (ops.T_coolant_in + ntu_result.T_coolant_out) / 2.0
-    T_air_mean = (ops.T_air_in + ntu_result.T_air_out) / 2.0
-    coolant_state = get_fluid_properties(ops, T_coolant_mean, ops.P_coolant)
-    air_state = get_air_properties(ops, T_air_mean, ops.P_air)
+# NTU's profile is a genuine reduction of its own converged element field
+# (solve_it_NTU), along the same coolant path the field solver marches
+# (cell_path_order). Same reduction as calc_cell_profile below; for NTU all
+# tubes are identical, so mean/sum over tubes are exact copies/multiples.
+def calc_ntu_profile(ntu_result, geo, n_elements: int) -> ProfileData:
+    path = cell_path_order(geo.n_rows, n_elements)
+    n_points = len(path)
 
-    W1 = ops.m_dot_1 * coolant_state.cp
-    W2 = ops.m_dot_2 * air_state.cp
-    R1 = W1 / W2
-    A_run = geo.A * geo.n_tubes
-    NTU1 = (ntu_result.k * A_run) / W1
-    P1 = calc_P(NTU1, R1)
-    P2 = P1 * R1
+    T_coolant = np.array([ntu_result.T_c_grid[r, :, e].mean() for r, e in path])
+    T_air = np.array([ntu_result.T_a_grid[r, :, e].mean() for r, e in path])
+    k = np.array([ntu_result.k_grid[r, :, e].mean() for r, e in path])
+    dQdL = np.array([ntu_result.dQdL_grid[r, :, e].sum() for r, e in path])   # extensive: sum over tubes
 
-    def march(T_a0_guess):
-        """Marches coolant-direction (j=0 inlet -> j=n outlet) from a guessed
-        air temperature at the coolant-inlet boundary (T_a[0] -- physically
-        air's OUTLET there, since this is counterflow); T_a[j+1] is solved
-        from row j's own air-side relation, not assumed known."""
-        T_c = np.zeros(n + 1)
-        T_a = np.zeros(n + 1)
-        T_c[0] = ops.T_coolant_in
-        T_a[0] = T_a0_guess
-        for j in range(n):
-            T_a[j + 1] = (T_a[j] - P2 * T_c[j]) / (1 - P2)
-            T_c[j + 1] = T_c[j] - P1 * (T_c[j] - T_a[j + 1])
-        return T_c, T_a
+    x_frac = np.linspace(0.0, 1.0, n_points)
 
-    # AI-REVIEW: linear shooting -- exact for this affine per-row map, not an
-    # approximation. Two trial guesses for the unknown air-outlet boundary
-    # pin down the guess -> T_a[n] relationship exactly, then a third march
-    # with the solved guess gives the real profile. See CLAUDE.md.
-    _, T_a_trial0 = march(0.0)
-    _, T_a_trial1 = march(1.0)
-    b0, b1 = T_a_trial0[-1], T_a_trial1[-1]
-    T_a0_solved = (ops.T_air_in - b0) / (b1 - b0)
-    T_c, T_a = march(T_a0_solved)
-
-    if abs(T_c[-1] - ntu_result.T_coolant_out) > 0.5:
-        print(f"[analysis] WARNING: NTU row-recursion reconstruction "
-              f"(T_coolant_out={T_c[-1]:.2f}) doesn't match the closed-form "
-              f"result ({ntu_result.T_coolant_out:.2f}). See CLAUDE.md.")
-
-    x_frac = np.linspace(0.0, 1.0, n + 1)
-    k_profile = np.full(n + 1, ntu_result.k)
-    dQdL = ntu_result.k * (T_c - T_a) * (A_run / geo.height)   # both arrays now share the same boundary indexing
-
-    return ProfileData(x_frac=x_frac, T_coolant=T_c, T_air=T_a, k=k_profile, dQdL=dQdL)
+    return ProfileData(x_frac=x_frac, T_coolant=T_coolant, T_air=T_air, k=k, dQdL=dQdL)
 
 
 # Cell's profile is a genuine reduction, not a reconstruction -- see

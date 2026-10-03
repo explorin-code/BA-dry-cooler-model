@@ -67,7 +67,7 @@ def calc_delta_p_coolant(geo, ops, coolant_state) -> float:
     f_c = calc_f_coolant(Re)
     visc_corr_c = calc_visc_corr_c(mu, mu_w, Re)
 
-    return geo.n_rows * (f_c * (geo.l / geo.d_i) * visc_corr_c + 2.5) * (rho * u_i**2 / 2)
+    return geo.n_rows * (f_c * (geo.l / geo.d_i) * visc_corr_c + (0.5 + 1.0 + 1.5*(geo.n_rows - 1)/geo.n_rows)) * (rho * u_i**2 / 2)
     
 
 # =============================================================================
@@ -84,9 +84,9 @@ def calc_delta_p_coolant(geo, ops, coolant_state) -> float:
 WANG_RANGE = {
     'n_rows': (1, 6),
     'd_a':    (6.35e-3, 12.7e-3),
-    't_R':    (1.19e-3, 8.7e-3),
-    's_1':    (17.7e-3, 31.75e-3),
-    's_2':    (12.4e-3, 27.5e-3),
+    'F_p':    (1.19e-3, 8.7e-3),
+    'P_t':    (17.7e-3, 31.75e-3),
+    'P_l':    (12.4e-3, 27.5e-3),
 }
 
 
@@ -98,10 +98,10 @@ def check_wang_range(geo) -> None:
             warnings.warn(f"Wang correlation: {name} = {value:g} outside tested range [{lo:g}, {hi:g}]")
 
 
-def calc_wang_F1(s_1: float, s_2: float, t_R: float, d_c: float, n_rows: int) -> float:
+def calc_wang_F1(P_t: float, P_l: float, F_p: float, d_c: float, n_rows: int) -> float:
     """Source: Wang et al., Part II, p. 2699, Eq. (13):
     F1 = -0.764 + 0.739*(Pt/Pl) + 0.177*(Fp/Dc) - 0.00758/N."""
-    return -0.764 + 0.739 * (s_1 / s_2) + 0.177 * (t_R / d_c) - 0.00758 / n_rows
+    return -0.764 + 0.739 * (P_t / P_l) + 0.177 * (F_p / d_c) - 0.00758 / n_rows
 
 
 def calc_wang_F2(Re_Dc: float) -> float:
@@ -114,17 +114,17 @@ def calc_wang_F3(Re_Dc: float) -> float:
     return 1.696 - 15.695 / log(Re_Dc)
 
 
-def calc_f_wang(Re_Dc: float, s_1: float, s_2: float, t_R: float, d_c: float, n_rows: int) -> float:
-    """Wang plain-fin friction factor f [-]. Pt = s_1, Pl = s_2, Fp = t_R
-    (fin pitch), Dc = d_c. Re_Dc is based on d_c and the minimum-gap
+def calc_f_wang(Re_Dc: float, P_t: float, P_l: float, F_p: float, d_c: float, n_rows: int) -> float:
+    """Wang plain-fin friction factor f [-]. Tube pitches P_t/P_l, fin
+    pitch F_p and collar diameter d_c follow Wang's own notation. Re_Dc is based on d_c and the minimum-gap
     velocity w_e (heat_transfer_core.calc_Re_air with d = d_c).
     Source: Wang et al., Part II, p. 2699, Eq. (12):
     f = 0.0267 * ReDc^F1 * (Pt/Pl)^F2 * (Fp/Dc)^F3.
     Applicability: see WANG_RANGE."""
-    F1 = calc_wang_F1(s_1, s_2, t_R, d_c, n_rows)
+    F1 = calc_wang_F1(P_t, P_l, F_p, d_c, n_rows)
     F2 = calc_wang_F2(Re_Dc)
     F3 = calc_wang_F3(Re_Dc)
-    return 0.0267 * Re_Dc**F1 * (s_1 / s_2)**F2 * (t_R / d_c)**F3
+    return 0.0267 * Re_Dc**F1 * (P_t / P_l)**F2 * (F_p / d_c)**F3
 
 
 def calc_G_c(m_dot_air: float, A_c: float) -> float:
@@ -161,19 +161,20 @@ def calc_delta_p_bundle_air(geo, ops, air_in, air_out, air_mean) -> float:
     # state is G_c / rho_mean.
     w_e_mean = G_c / air_mean.rho
     Re_Dc = calc_Re_air(geo.d_c, w_e_mean, air_mean.rho, air_mean.mu)
-    f = calc_f_wang(Re_Dc, geo.s_1, geo.s_2, geo.t_R, geo.d_c, geo.n_rows)
+    f = calc_f_wang(Re_Dc, geo.P_t, geo.P_l, geo.F_p, geo.d_c, geo.n_rows)
 
     return calc_delta_p_platefin_air(f, geo.A_total, A_c, G_c, sigma, air_in.rho, air_out.rho)
 
 
 def calc_delta_p_pad() -> float:
     """Pressure drop across the adiabatic pre-cooler pad [Pa]."""
-    return 50  # Range for standard 300 mm cooler 34.8 Pa to 74.6 Pa (ASHRAE2020 Chapter 41)
+    return 50  # Range for standard 300 mm cooler 34.8 Pa to 74.6 Pa (ASHRAE2020 Chapter 41), may not be active during dry operation (other inlet, TODO)
 
 
 def calc_delta_p_air_total(delta_p_bundle: float, delta_p_pad: float = None) -> float:
-    """Total air-side pressure drop [Pa]: bundle plus pad. The pad is
-    installed in both scenarios (wet or dry), so callers always pass it."""
+    """Total air-side pressure drop [Pa]: bundle plus pad, if the air passes
+    the pad (always when precooling; in dry operation see
+    parameters.PAD_IN_DRY_AIR_PATH). delta_p_pad None = no pad in the path."""
     if delta_p_pad is None:
         return delta_p_bundle
     return delta_p_bundle + delta_p_pad

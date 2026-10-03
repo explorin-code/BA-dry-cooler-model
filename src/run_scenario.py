@@ -1,11 +1,13 @@
 """
 run_scenario.py
 ================
-Builds and returns the convergence figure for an already-solved
-ScenarioResult (see solvers.solve_scenario()). Pure display -- no solving.
+Shared display pieces for an already-solved ScenarioResult (see
+solvers.solve_scenario()): the text formatters used by the cooler-results
+figure (plot_profiles.plot_cooler_results) and the terminal summary, and
+the convergence panels used by the convergence figure
+(plot_solver.plot_convergence). Pure display -- no solving.
 """
 
-import matplotlib.pyplot as plt
 import seaborn as sns
 
 from src.solvers import ScenarioResult
@@ -60,28 +62,106 @@ def format_geometry_info(geo) -> str:
     )
 
 
-def format_output_conditions(label: str, T_coolant_out: float, T_air_out: float,
-                              dQ: float, diagnostics: dict) -> str:
-    """Outlet temps, dQ, and final-iteration Pr/Re/Nu for both sides."""
-    header = f"{label} — Results"
-    temps_line = (
-        f"T_coolant_out = {T_coolant_out:5.2f} °C   "
-        f"T_air_out = {T_air_out:5.2f} °C   "
-        f"Q = {dQ/1000:6.2f} kW"
-    )
-    coolant_line = (
+def calc_pinch(T_coolant_out: float, T_air_in: float) -> float:
+    """Cold-end temperature approach (pinch point) of the counterflow
+    arrangement: coolant outlet vs. air inlet [K]."""
+    return T_coolant_out - T_air_in
+
+
+def calc_deviation(value: float, reference: float) -> float:
+    """Relative deviation of value from reference [%]."""
+    return (value - reference) / reference * 100.0
+
+
+def format_output_conditions(label: str, result, T_air_in: float, reference=None) -> str:
+    """Terminal text: outlet temperatures, pinch and Q; for LMTD/NTU
+    (reference = the Cell SolverResult) their deviation from Cell; then
+    final-iteration Pr/Re/Nu for both sides. The figure uses
+    output_condition_cells() instead (subscripts, aligned columns)."""
+    diagnostics = result.diagnostics
+    pinch = calc_pinch(result.T_coolant_out, T_air_in)
+    T_co, T_ao, dT_pinch = "T_c,o", "T_a,o", "ΔT_pinch"
+    alpha_i, alpha_R = "α_i", "α_R"
+
+    lines = [
+        f"{label} — Results",
+        f"{T_co} = {result.T_coolant_out:5.2f} °C   {T_ao} = {result.T_air_out:5.2f} °C   "
+        f"{dT_pinch} = {pinch:5.2f} K   Q = {result.dQ/1000:6.2f} kW",
+    ]
+    if reference is not None:
+        pinch_ref = calc_pinch(reference.T_coolant_out, T_air_in)
+        lines.append(f"vs. Cell:   Q {calc_deviation(result.dQ, reference.dQ):+5.2f} %   "
+                     f"{dT_pinch} {calc_deviation(pinch, pinch_ref):+5.2f} %")
+    lines += [
+        "",
         f"Coolant:  Pr = {diagnostics['Pr_coolant']:6.3f}   "
         f"Re = {diagnostics['Re_coolant']:8.1f}   "
         f"Nu = {diagnostics['Nu_coolant']:7.2f}   "
-        f"α_1 = {diagnostics['alpha_1']:7.1f} W/m²K"
-    )
-    air_line = (
+        f"{alpha_i} = {diagnostics['alpha_i']:7.1f} W/m²K",
         f"Air:      Pr = {diagnostics['Pr_air']:6.3f}   "
         f"Re = {diagnostics['Re_air']:8.1f}   "
         f"Nu = {diagnostics['Nu_air']:7.2f}   "
-        f"α_R = {diagnostics['alpha_R']:7.1f} W/m²K"
-    )
-    return header + "\n" + temps_line + "\n" + coolant_line + "\n" + air_line
+        f"{alpha_R} = {diagnostics['alpha_R']:7.1f} W/m²K",
+    ]
+    return "\n".join(lines)
+
+
+# -----------------------------------------------------------------------------
+# Figure cells for plot_style.draw_text_grid: subscripts as mathtext, one
+# value per cell so columns align. Values keep fixed-width formats, so equal
+# quantities line up digit by digit within a column.
+# -----------------------------------------------------------------------------
+
+def input_condition_cells(ops: OperatingConditions, geo) -> list:
+    """Blocks for the input box: both media (same columns), then geometry."""
+    media = [
+        [f"Coolant ({ops.coolant_type}):", r"$T_{c,i}$ =", f"{ops.T_coolant_in:5.1f} °C",
+         r"$w$ =", f"{ops.u_i:6.3f} m/s", r"$\dot{m}$ =", f"{ops.m_dot_1:6.3f} kg/s",
+         r"$\dot{V}$ =", f"{ops.V_coolant:8.5f} m³/s"],
+        [f"Air (φ = {ops.phi:4.2f}):", r"$T_{a,i}$ =", f"{ops.T_air_in:5.1f} °C",
+         r"$w$ =", f"{ops.w_f:6.3f} m/s", r"$\dot{m}$ =", f"{ops.m_dot_2:6.3f} kg/s",
+         r"$\dot{V}$ =", f"{ops.V_o:8.5f} m³/s"],
+    ]
+    geometry = [
+        ["Geometry:", r"$n_{rows}$ =", f"{geo.n_rows:d}", r"$n_{tubes}$ =", f"{geo.n_tubes:d}",
+         r"$H \times W$ =", f"{geo.height:.3f} m × {geo.width:.3f} m",
+         r"$A_{front}$ =", f"{geo.inflow_cross_section:.4f} m²"],
+    ]
+    return [media, geometry]
+
+
+def economics_cells(P_p, P_f, m_dot_w) -> list:
+    """Blocks for the economics box."""
+    from src.economics import calc_total_power
+    P_total = calc_total_power(P_p, P_f)
+    fmt_w = lambda v: f"{v:7.2f} W" if v is not None else "n/a"
+    return [[["Economics:", r"$P_{pump}$ =", fmt_w(P_p), r"$P_{fan}$ =", fmt_w(P_f),
+              r"$P_{total}$ =", fmt_w(P_total), r"$\dot{m}_{water}$ =",
+              f"{m_dot_w * 1000:6.3f} g/s" if m_dot_w is not None else "n/a"]]]
+
+
+def output_condition_cells(label: str, result, T_air_in: float, reference=None) -> list:
+    """Blocks for one solver's result box: outlets/pinch/Q, for LMTD/NTU the
+    deviation from Cell directly below the pinch and Q values, an empty
+    line, then Pr/Re/Nu/alpha for both sides (own aligned columns)."""
+    d = result.diagnostics
+    pinch = calc_pinch(result.T_coolant_out, T_air_in)
+    outputs = [
+        ["Outputs:", r"$T_{c,o}$ =", f"{result.T_coolant_out:5.2f} °C", r"$T_{a,o}$ =",
+         f"{result.T_air_out:5.2f} °C", r"$\Delta T_{pinch}$ =", f"{pinch:5.2f} K", r"$Q$ =",
+         f"{result.dQ / 1000:6.2f} kW"],
+    ]
+    if reference is not None:
+        pinch_ref = calc_pinch(reference.T_coolant_out, T_air_in)
+        outputs.append(["vs. Cell:", "", "", "", "", "", f"{calc_deviation(pinch, pinch_ref):+5.2f} %",
+                        "", f"{calc_deviation(result.dQ, reference.dQ):+6.2f} %"])
+    numbers = [
+        ["Coolant:", r"$Pr$ =", f"{d['Pr_coolant']:6.3f}", r"$Re$ =", f"{d['Re_coolant']:7.1f}",
+         r"$Nu$ =", f"{d['Nu_coolant']:6.2f}", r"$\alpha_i$ =", f"{d['alpha_i']:7.1f} W/m²K"],
+        ["Air:", r"$Pr$ =", f"{d['Pr_air']:6.3f}", r"$Re$ =", f"{d['Re_air']:7.1f}",
+         r"$Nu$ =", f"{d['Nu_air']:6.2f}", r"$\alpha_R$ =", f"{d['alpha_R']:7.1f} W/m²K"],
+    ]
+    return [[f"{label} — Results"], outputs, [""], numbers]
 
 
 def format_economics(P_p, P_f, m_dot_w) -> str:
@@ -99,30 +179,13 @@ def format_economics(P_p, P_f, m_dot_w) -> str:
     )
 
 
-def plot_scenario(result: ScenarioResult, ops: OperatingConditions, geo, label: str, omega: float,
-                   P_p=None, P_f=None, m_dot_w=None):
-    """Builds the convergence figure for an already-solved ScenarioResult
-    and returns it (does NOT call plt.show() -- the caller decides when to
-    display, so multiple scenarios' windows can be shown together).
-    P_p/P_f/m_dot_w are optional economics figures to display -- pass
-    None for whichever aren't computed yet."""
+def draw_convergence(ax1, ax2, result: ScenarioResult, ops: OperatingConditions, omega: float,
+                     cell_omega: float):
+    """Convergence panels for an already-solved ScenarioResult: outlet
+    temperatures per iteration (ax1) and per-iteration errors (ax2).
+    omega: LMTD/NTU's relaxation factor, cell_omega: Cell's own."""
+    omega_text = f"$\\omega$: LMTD/NTU = {omega}, Cell = {cell_omega}"
     lmtd, ntu, cell = result.lmtd, result.ntu, result.cell
-
-    print(f"[{label}] [LMTD] converged! k = {lmtd.k:.2f} W/m2K, Q = {lmtd.dQ/1000:.2f} kW, "
-          f"iterations = {len(lmtd.history_hot)}")
-    print(f"[{label}] [NTU]  converged! k = {ntu.k:.2f} W/m2K, Q = {ntu.dQ/1000:.2f} kW, "
-          f"iterations = {len(ntu.history_hot)}")
-    print(f"[{label}] [Cell] converged! k = {cell.k:.2f} W/m2K, Q = {cell.dQ/1000:.2f} kW, "
-          f"iterations = {len(cell.history_hot)}")
-
-    # --- Input conditions actually used by the solvers -------------------
-    input_conditions_text = format_input_conditions(ops) + "\n" + format_geometry_info(geo)
-
-    # --- Per-solver output fields ------------------------------------------
-    output_text_lmtd = format_output_conditions("LMTD", lmtd.T_coolant_out, lmtd.T_air_out, lmtd.dQ, lmtd.diagnostics)
-    output_text_ntu = format_output_conditions("NTU", ntu.T_coolant_out, ntu.T_air_out, ntu.dQ, ntu.diagnostics)
-    output_text_cell = format_output_conditions("Cell", cell.T_coolant_out, cell.T_air_out, cell.dQ, cell.diagnostics)
-    economics_text = format_economics(P_p, P_f, m_dot_w)
 
     # --- Colors: one hue per solver, air = lighter tone of the coolant hue ---
     color_lmtd_air = lighten_color(COLOR_LMTD, 0.55)
@@ -136,79 +199,32 @@ def plot_scenario(result: ScenarioResult, ops: OperatingConditions, geo, label: 
     max_len_temp = max(len(lmtd.history_T_coolant), len(ntu.history_T_coolant), len(cell.history_T_coolant))
     max_len_err = max(len(lmtd.history_hot), len(ntu.history_hot), len(cell.history_hot))
 
-    # ====================================================================
-    # All three plots share ONE figure/window, side by side
-    # ====================================================================
-    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(17, 8.5))
-    fig.canvas.manager.set_window_title(label)
-
     # --- Left: outlet temperatures -------------------------------------
-    plot_with_tail(ax1, lmtd.history_T_coolant, max_len_temp, COLOR_LMTD, "LMTD - Coolant out")
-    plot_with_tail(ax1, lmtd.history_T_air, max_len_temp, color_lmtd_air, "LMTD - Air out")
-    plot_with_tail(ax1, ntu.history_T_coolant, max_len_temp, COLOR_NTU, "NTU - Coolant out")
-    plot_with_tail(ax1, ntu.history_T_air, max_len_temp, color_ntu_air, "NTU - Air out")
-    plot_with_tail(ax1, cell.history_T_coolant, max_len_temp, COLOR_CELL, "Cell - Coolant out")
-    plot_with_tail(ax1, cell.history_T_air, max_len_temp, color_cell_air, "Cell - Air out")
+    plot_with_tail(ax1, lmtd.history_T_coolant, max_len_temp, COLOR_LMTD, r"LMTD – $T_{c,o}$")
+    plot_with_tail(ax1, lmtd.history_T_air, max_len_temp, color_lmtd_air, r"LMTD – $T_{a,o}$")
+    plot_with_tail(ax1, ntu.history_T_coolant, max_len_temp, COLOR_NTU, r"NTU – $T_{c,o}$")
+    plot_with_tail(ax1, ntu.history_T_air, max_len_temp, color_ntu_air, r"NTU – $T_{a,o}$")
+    plot_with_tail(ax1, cell.history_T_coolant, max_len_temp, COLOR_CELL, r"Cell – $T_{c,o}$")
+    plot_with_tail(ax1, cell.history_T_air, max_len_temp, color_cell_air, r"Cell – $T_{a,o}$")
 
-    ax1.axhline(ops.T_air_in, color='blue', linewidth=1.5, linestyle='--', alpha=0.8, zorder=1, label="T_air_in")
-    ax1.axhline(ops.T_coolant_in, color='red', linewidth=1.5, linestyle='--', alpha=0.8, zorder=1, label="T_coolant_in")
+    ax1.axhline(ops.T_air_in, color='blue', linewidth=1.5, linestyle='--', alpha=0.8, zorder=1, label=r"$T_{a,i}$")
+    ax1.axhline(ops.T_coolant_in, color='red', linewidth=1.5, linestyle='--', alpha=0.8, zorder=1, label=r"$T_{c,i}$")
 
-    ax1.set_title(f"Outlet Temperatures ($\\omega$ = {omega})")
+    ax1.set_title(f"Outlet Temperatures ({omega_text})")
     ax1.set_xlabel("Iteration")
     ax1.set_ylabel("Temperature [°C]")
     ax1.legend(fontsize=9)
 
     # --- Right: errors (dT_hot / dT_cold) -------------------------------
-    plot_with_tail(ax2, lmtd.history_hot, max_len_err, color_lmtd_hoterr, "LMTD - Error dT_hot")
-    plot_with_tail(ax2, lmtd.history_cold, max_len_err, COLOR_LMTD, "LMTD - Error dT_cold")
-    plot_with_tail(ax2, ntu.history_hot, max_len_err, color_ntu_hoterr, "NTU - Error dT_hot")
-    plot_with_tail(ax2, ntu.history_cold, max_len_err, COLOR_NTU, "NTU - Error dT_cold")
-    plot_with_tail(ax2, cell.history_hot, max_len_err, color_cell_hoterr, "Cell - Error dT_hot")
-    plot_with_tail(ax2, cell.history_cold, max_len_err, COLOR_CELL, "Cell - Error dT_cold")
+    plot_with_tail(ax2, lmtd.history_hot, max_len_err, color_lmtd_hoterr, r"LMTD – error $\Delta T_{hot}$")
+    plot_with_tail(ax2, lmtd.history_cold, max_len_err, COLOR_LMTD, r"LMTD – error $\Delta T_{cold}$")
+    plot_with_tail(ax2, ntu.history_hot, max_len_err, color_ntu_hoterr, r"NTU – error $\Delta T_{hot}$")
+    plot_with_tail(ax2, ntu.history_cold, max_len_err, COLOR_NTU, r"NTU – error $\Delta T_{cold}$")
+    plot_with_tail(ax2, cell.history_hot, max_len_err, color_cell_hoterr, r"Cell – error $\Delta T_{hot}$")
+    plot_with_tail(ax2, cell.history_cold, max_len_err, COLOR_CELL, r"Cell – error $\Delta T_{cold}$")
 
     ax2.axhline(0, color='black', linewidth=0.8, linestyle=':')
-    ax2.set_title(f"Iteration Errors ($\\omega$ = {omega})")
+    ax2.set_title(f"Iteration Errors ({omega_text})")
     ax2.set_xlabel("Iteration")
     ax2.set_ylabel("Difference (Current - Previous) [K]")
     ax2.legend(fontsize=9)
-
-    fig.suptitle(f"LMTD vs. NTU vs. Cell Solver Convergence — {label}", fontsize=18, fontweight="bold", y=0.99)
-
-    fig.text(
-        0.5, 0.925,
-        input_conditions_text,
-        ha="center", va="top",
-        fontsize=10.5, family="monospace",
-        bbox=dict(boxstyle="round,pad=0.5", facecolor="whitesmoke", edgecolor="gray", alpha=0.9),
-    )
-    fig.text(
-        0.5, 0.83,
-        output_text_cell,
-        ha="center", va="top",
-        fontsize=8.2, family="monospace",
-        bbox=dict(boxstyle="round,pad=0.45", facecolor="#fdf0e0", edgecolor=COLOR_CELL, alpha=0.9),
-    )
-    fig.text(
-        0.32, 0.745,
-        output_text_lmtd,
-        ha="center", va="top",
-        fontsize=8.2, family="monospace",
-        bbox=dict(boxstyle="round,pad=0.45", facecolor="#eaf5ec", edgecolor=COLOR_LMTD, alpha=0.9),
-    )
-    fig.text(
-        0.68, 0.745,
-        output_text_ntu,
-        ha="center", va="top",
-        fontsize=8.2, family="monospace",
-        bbox=dict(boxstyle="round,pad=0.45", facecolor="#f3ecf5", edgecolor=COLOR_NTU, alpha=0.9),
-    )
-    fig.text(
-        0.5, 0.665,
-        economics_text,
-        ha="center", va="top",
-        fontsize=8.2, family="monospace",
-        bbox=dict(boxstyle="round,pad=0.45", facecolor="#e8eef5", edgecolor="#4a6fa5", alpha=0.9),
-    )
-
-    fig.tight_layout(rect=[0, 0, 1, 0.62])
-    return fig

@@ -30,10 +30,10 @@ def calc_w_e_T(w_f: float, Ao_Ae_ratio: float, T_mean: float, T_in: float) -> fl
     return w_e * ((273.15 + T_mean) / (273.15 + T_in))
 
 
-def calc_Re_air(d: float, w_e_T: float, rho_air: float, eta_air: float) -> float:
+def calc_Re_air(d: float, w_e_T: float, rho_air: float, mu_air: float) -> float:
     """Air-side Reynolds number, based on diameter d (tube outer diameter
     d_a for heat transfer, fin-collar diameter d_c for Wang's friction factor)."""
-    return (d * w_e_T * rho_air) / eta_air
+    return (d * w_e_T * rho_air) / mu_air
 
 
 # -----------------------------------------------------------------------
@@ -44,9 +44,9 @@ def calc_Re_air(d: float, w_e_T: float, rho_air: float, eta_air: float) -> float
 # Book's stated validity range: 10^3 < Re_d < 10^5, 5 <= A/A_Go <= 30
 # (not currently enforced/warned on here).
 # -----------------------------------------------------------------------
-def calc_Nu_air(A_ratio: float, Pr_air: float, d: float, n: int, w_e_T: float, rho_air: float, eta_air: float) -> float:
+def calc_Nu_air(A_ratio: float, Pr_air: float, d: float, n: int, w_e_T: float, rho_air: float, mu_air: float) -> float:
     """Air-side Nusselt number for the fin-tube bundle."""
-    Re_air = calc_Re_air(d, w_e_T, rho_air, eta_air)
+    Re_air = calc_Re_air(d, w_e_T, rho_air, mu_air)
     C: float
 
     # staggered
@@ -75,10 +75,10 @@ def calc_alpha_R(Nu_air: float, lambda_air: float, d: float) -> float:
 #
 # Source: VDI Heat Atlas, Section M1, p. 1687, Eq. (13)   [in-line rows]
 # -----------------------------------------------------------------------
-def calc_fin_efficiency_inline(s_1: float, s_2: float, d_a: float, alpha_R: float, lambda_f: float, delta_R: float) -> float:
+def calc_fin_efficiency_inline(P_t: float, P_l: float, d_a: float, alpha_R: float, lambda_f: float, delta_R: float) -> float:
     # Determine bR and lR such that lR >= bR
-    bR = min(s_1, s_2)
-    lR = max(s_1, s_2)
+    bR = min(P_t, P_l)
+    lR = max(P_t, P_l)
 
     # Source: VDI M1, p. 1687, Eq. (13)
     phi_0 = 1.28 * (bR / d_a) * ((lR / bR) - 0.2)**0.5
@@ -93,16 +93,17 @@ def calc_fin_efficiency_inline(s_1: float, s_2: float, d_a: float, alpha_R: floa
 
 # -----------------------------------------------------------------------
 # Source: VDI Heat Atlas, Section M1, p. 1687, Eq. (14)   [staggered rows]
+# (book notation s_1/s_2 == P_t/P_l here)
 # (shares the phi_0 -> phi -> X -> tanh(X)/X chain with Eq. (12), see
 # calc_fin_efficiency_inline() above for the Eq. (13) in-line variant)
 # -----------------------------------------------------------------------
-def calc_fin_efficiency_staggered(s_1: float, s_2: float, d_a: float, alpha_R: float, lambda_f: float, delta_R: float) -> float:
-    if s_2 >= s_1 / 2:
-        bR = s_1
+def calc_fin_efficiency_staggered(P_t: float, P_l: float, d_a: float, alpha_R: float, lambda_f: float, delta_R: float) -> float:
+    if P_l >= P_t / 2:
+        bR = P_t
     else:
-        bR = 2 * s_2
+        bR = 2 * P_l
 
-    lR = (s_2**2 + (s_1 / 2)**2)**0.5
+    lR = (P_l**2 + (P_t / 2)**2)**0.5
 
     # Source: VDI M1, p. 1687, Eq. (14)
     phi_0 = 1.27 * (bR / d_a) * ((lR / bR) - 0.3)**0.5
@@ -151,12 +152,12 @@ def calc_Nu_laminar(Re: float, Pr: float, d_i: float, l: float) -> float:
     return (Nu_mq1**3 + 0.6**3 + (Nu_mq2 - 0.6)**3 + Nu_mq3**3)**(1/3)
 
 
-def calc_Re_coolant(w: float, d_i: float, rho_coolant: float, cool_eta: float) -> float:
+def calc_Re_coolant(w: float, d_i: float, rho_coolant: float, cool_mu: float) -> float:
     """Coolant-side (tube) Reynolds number."""
-    return (d_i * w * rho_coolant) / cool_eta
+    return (d_i * w * rho_coolant) / cool_mu
 
 
-def calc_Nu_coolant(w: float, d_i: float, l: float, rho_coolant: float, cool_eta: float, cool_Pr: float):
+def calc_Nu_coolant(w: float, d_i: float, l: float, rho_coolant: float, cool_mu: float, cool_Pr: float):
     """Returns (Nu, Re) for the coolant (tube) side, handling the
     laminar / transitional / turbulent blend.
     Source: VDI Wärmeatlas, Chapter G1, §4.2, Gl. (29)/(30) -- the 2300-4000
@@ -170,7 +171,7 @@ def calc_Nu_coolant(w: float, d_i: float, l: float, rho_coolant: float, cool_eta
     blend (2320-3000) -- confirmed genuinely different sources (this one is
     from the book; that one is the author's choice, see its own docstring),
     not an inconsistency to reconcile."""
-    Re = calc_Re_coolant(w, d_i, rho_coolant, cool_eta)
+    Re = calc_Re_coolant(w, d_i, rho_coolant, cool_mu)
 
     if Re < 2300:
         Nu = calc_Nu_laminar(Re, cool_Pr, d_i, l)
@@ -183,9 +184,9 @@ def calc_Nu_coolant(w: float, d_i: float, l: float, rho_coolant: float, cool_eta
     return Nu, Re
 
 
-def calc_alpha_1(w: float, d_i: float, l: float, rho_coolant: float, cool_eta: float, cool_Pr: float, cool_lambda: float) -> float:
+def calc_alpha_i(w: float, d_i: float, l: float, rho_coolant: float, cool_mu: float, cool_Pr: float, cool_lambda: float) -> float:
     """Coolant-side heat transfer coefficient [W/m²K]."""
-    Nu, Re = calc_Nu_coolant(w, d_i, l, rho_coolant, cool_eta, cool_Pr)
+    Nu, Re = calc_Nu_coolant(w, d_i, l, rho_coolant, cool_mu, cool_Pr)
     return (Nu * cool_lambda) / d_i
 
 
@@ -213,7 +214,7 @@ def _compute_air_side(geo, ops, air_state, T_air_out: float):
         n=geo.n_rows,
         w_e_T=w_e_T,
         rho_air=air_state.rho,
-        eta_air=air_state.mu,
+        mu_air=air_state.mu,
     )
 
     alpha_R = calc_alpha_R(Nu_air, air_state.lambda_, geo.d_a)
@@ -227,22 +228,22 @@ def calc_overall_k(geo, ops, coolant_state, air_state, T_air_out: float) -> floa
 
     # --- Air side (outer) ---------------------------------------------
     w_e_T, Nu_air, alpha_R = _compute_air_side(geo, ops, air_state, T_air_out)
-    eta_R = calc_fin_efficiency_staggered(geo.s_1, geo.s_2, geo.d_a, alpha_R, geo.lambda_f, geo.delta_R)
+    eta_R = calc_fin_efficiency_staggered(geo.P_t, geo.P_l, geo.d_a, alpha_R, geo.lambda_f, geo.delta_R)
     alpha_S = calc_alpha_S(alpha_R, eta_R, geo.A, geo.A_R)
 
     # --- Coolant side (inner) ------------------------------------------
-    alpha_1 = calc_alpha_1(
+    alpha_i = calc_alpha_i(
         w=ops.u_i,
         d_i=geo.d_i,
         l=geo.l,
         rho_coolant=coolant_state.rho,
-        cool_eta=coolant_state.mu,
+        cool_mu=coolant_state.mu,
         cool_Pr=coolant_state.Pr,
         cool_lambda=coolant_state.lambda_,
     )
 
     # --- Combine into overall k -----------------------------------------
-    k_inv = (1 / alpha_S) + (geo.A / geo.A_i) * ((1 / alpha_1) + (geo.d_a - geo.d_i) / (2 * geo.lambda_p))
+    k_inv = (1 / alpha_S) + (geo.A / geo.A_i) * ((1 / alpha_i) + (geo.d_a - geo.d_i) / (2 * geo.lambda_p))
 
     return k_inv ** (-1)
 
@@ -265,18 +266,15 @@ def calc_diagnostics(geo, ops, coolant_state, air_state, T_air_out: float) -> di
         d_i=geo.d_i,
         l=geo.l,
         rho_coolant=coolant_state.rho,
-        cool_eta=coolant_state.mu,
+        cool_mu=coolant_state.mu,
         cool_Pr=coolant_state.Pr,
     )
-    alpha_1 = (Nu_coolant * coolant_state.lambda_) / geo.d_i
+    alpha_i = (Nu_coolant * coolant_state.lambda_) / geo.d_i
 
-    # NOTE on the mixed alpha_1 vs. alpha_R/alpha_S naming below: this isn't
-    # an inconsistency to "fix" into a uniform alpha_1/alpha_2. Coolant-side
-    # alpha_1 uses the generic two-fluid numbering from VDI Chapter C1
-    # (fluid 1 = coolant); air-side alpha_R/alpha_S are Chapter M1's own
-    # fin-specific symbols (bare-tube vs. fin-efficiency-corrected outer
-    # coefficient) -- there is no "alpha_2" because the book itself splits
-    # fin-specific notation from the generic two-fluid one across chapters.
+    # NOTE on naming: all three follow VDI Chapter M1's own notation (as in
+    # its worked example and k equation): alpha_i = coolant side, inside
+    # the tube; alpha_R / alpha_S = air side, bare vs. fin-efficiency-
+    # corrected outer coefficient.
     return {
         'Pr_air': air_state.Pr,
         'Re_air': Re_air,
@@ -285,7 +283,7 @@ def calc_diagnostics(geo, ops, coolant_state, air_state, T_air_out: float) -> di
         'Pr_coolant': coolant_state.Pr,
         'Re_coolant': Re_coolant,
         'Nu_coolant': Nu_coolant,
-        'alpha_1': alpha_1,
+        'alpha_i': alpha_i,
     }
 
 # NOTE: an earlier capacity-flow-ratio helper chain (calc_heat_cap_flow_*,
