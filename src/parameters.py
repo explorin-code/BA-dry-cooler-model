@@ -25,19 +25,20 @@ V_O = 0.0                       # air volumetric flow rate      [m3/s]
 COOLANT_TYPE = None             # e.g. 'Water'
 P_COOLANT = None                # [Pa]
 P_AIR = None                    # [Pa]
-PHI_AIR = 0.3                  # inlet relative humidity [0-1] -- give at most one of PHI_AIR/X_AIR
-X_AIR = None                    # inlet humidity ratio [kg water/kg dry air]
+PHI_AIR = 0.3                   # inlet relative humidity [0-1] -- give at most one of PHI_AIR/Y_AIR
+Y_AIR = None                    # inlet humidity ratio Y [kg water/kg dry air]
 
 # --- Geometry: tube/fin dimensions ----------------------------------------
-D_TUBE_OUTER = 0.009            # tube outer diameter           [m]
-FIN_THICKNESS = 0.00012         # fin thickness                 [m]
-FIN_SPACING = 0.0015            # fin spacing                   [m]
-D_TUBE_INNER = 0.008            # tube inner diameter           [m]  -- 12 mm OD, 0.5 mm wall
+# Lengths in mm here (and in the GUI); converted to m when read (param_loader.MM).
+D_TUBE_OUTER_MM = 9.0           # tube outer diameter           [mm]
+FIN_THICKNESS_MM = 0.12         # fin thickness                 [mm]
+FIN_PITCH_MM = 1.62             # fin pitch F_p = spacing + thickness [mm]  -- 1.5 mm clear spacing
+D_TUBE_INNER_MM = 8.0           # tube inner diameter           [mm]  -- 0.5 mm wall
 N_TUBES = 17                    # number of tubes (parallel)
 N_ROWS = 6                      # number of tube rows
-PITCH_TRANSVERSE = 0.03         # tube pitch P_t, transverse    [m]
-PITCH_LONGITUDINAL = 0.03       # tube pitch P_l, longitudinal  [m]
-HEIGHT = 1                    # cooler height == single tube-pass length [m]
+PITCH_TRANSVERSE_MM = 30.0      # tube pitch P_t, transverse    [mm]
+PITCH_LONGITUDINAL_MM = 30.0    # tube pitch P_l, longitudinal  [mm]
+HEIGHT_MM = 1000.0              # cooler height == single tube-pass length L_p [mm]
 
 # --- Geometry: fallback values -- None uses the class default ------------
 PIPE_MATERIAL = 'Copper'        # tube wall material, e.g. 'Aluminum', 'Carbon Steel'
@@ -50,18 +51,19 @@ PLOT_RESULTS = True              # cooler-results figures (inputs, results, prof
 PLOT_CONVERGENCE = False         # convergence + iteration-error figure per scenario
 BENCHMARK_MODE = True          # caching benchmark + solver-performance figure (adds ~20 s)
 RESOLUTION_MODE = True          # resolution sweep + its figure (adds ~15 s)
+CELL_2D = False                 # Cell: one representative tube (2D, ~N_TUBES x faster, no neighbour
+                                 # averaging of air) instead of all tubes (3D)
 BENCHMARK_RESOLUTIONS = [2, 3, 4, 5, 6, 8, 10, 12, 15, 20, 25, 30, 40, 50, 75, 100]
                                  # Cell segments / NTU elements swept by RESOLUTION_MODE
 BENCHMARK_REPEATS = 3           # timed repeats per caching measurement (median is reported)
 BENCHMARK_SWEEP_REPEATS = 1     # timed repeats per resolution point (iteration counts are exact anyway)
 
 # --- Solver tuning: shared by LMTD/NTU/Cell -------------------------------
-DT_HOT_IT_INIT = 30             # initial dT_hot guess                  [K]
-DT_COLD_IT_INIT = 30            # initial dT_cold guess                 [K]
-DT_KICK = 5.0                   # forced initial dT_hot/dT_cold to kickstart the while loop [K]
-CONVERGENCE_THRESHOLD = 1e-3    # convergence threshold on dT_hot/dT_cold change [K]
-CENTRAL_OMEGA = 0.2             # under-relaxation factor -- same for all three solvers,
-                                 # so their step sizes are directly comparable
+DT_HOT_IT_INIT = 30.0           # initial Delta_theta_hot guess                  [K]
+DT_COLD_IT_INIT = 30.0          # initial Delta_theta_cold guess                 [K]
+CONVERGENCE_THRESHOLD = 1e-3    # convergence threshold on Delta_theta_hot/Delta_theta_cold change [K]
+CENTRAL_OMEGA = 0.2             # under-relaxation factor of LMTD/NTU's shared outer loop
+                                 # (Cell uses its own CELL_OMEGA, see below)
 CELL_N_SEGMENTS = 20            # coolant-direction segments per tube pass (Cell only)
 CELL_OMEGA = 1.0                # Cell's own relaxation factor -- NOT CENTRAL_OMEGA: at 0.2 Cell's
                                  # per-cell stopping criterion fired ~0.02 K before convergence
@@ -72,16 +74,13 @@ NTU_N_ELEMENTS = 20             # elements per tube per row (NTU only) -- indepe
 NTU_FIELD_THRESHOLD = 1e-6      # max-norm change of the element temperature field per sweep [K]
 NTU_FIELD_MAX_ITER = 2000
 
-# --- Solver tuning: Cell's two-stage relaxation (see solvers._relax_cell_grid) ---
-CELL_STAGE1_THRESHOLD = 1e-1    # stage 1: coarse, fast propagation at a large omega
-CELL_STAGE1_MAX_ITER = 50
-CELL_STAGE1_MIN_ITER = 3
-CELL_STAGE2_THRESHOLD = 1e-3    # stage 2: fine polish at the requested omega
-CELL_STAGE2_MAX_ITER = 1000
-CELL_STAGE2_MIN_ITER = 3
+# --- Solver tuning: Cell's relaxation (see solvers._relax_cell_grid) ---
+CELL_THRESHOLD = 1e-3           # stop when no cell changes by more than this per iteration [K]
+CELL_MAX_ITER = 1000
+CELL_MIN_ITER = 3
 
 # --- Precooling: decision target and dry-operation air path --------------
-T_COOLANT_TARGET_OUT = 25.0     # precool if Cell's T_coolant_out exceeds this -- Konrad's target
+T_COOLANT_TARGET_OUT = 25.0     # precool if Cell's theta_c_o exceeds this -- Konrad's target
 PAD_IN_DRY_AIR_PATH = False      # dry operation (no precooling): True = air still passes the (dry) pad,
                                  # so its pressure drop counts; False = separate bypass inlet, no pad ΔP.
                                  # Precooled operation always passes the pad.

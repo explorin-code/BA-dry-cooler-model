@@ -37,17 +37,17 @@ def format_input_conditions(ops: OperatingConditions) -> str:
     both media, regardless of which one was actually specified."""
     coolant_line = (
         f"Coolant ({ops.coolant_type}):  "
-        f"T_in = {ops.T_coolant_in:5.1f} °C   "
-        f"w = {ops.u_i:6.3f} m/s   "
-        f"ṁ = {ops.m_dot_1:6.3f} kg/s   "
-        f"V̇ = {ops.V_coolant:7.5f} m³/s"
+        f"T_in = {ops.theta_c_i:5.1f} °C   "
+        f"w = {ops.w_c:6.3f} m/s   "
+        f"ṁ = {ops.m_dot_c:6.3f} kg/s   "
+        f"V̇ = {ops.V_dot_c:7.5f} m³/s"
     )
     air_line = (
         f"Air (phi = {ops.phi:5.1f}):        "
-        f"T_in = {ops.T_air_in:5.1f} °C   "
-        f"w = {ops.w_f:6.3f} m/s   "
-        f"ṁ = {ops.m_dot_2:6.3f} kg/s   "
-        f"V̇ = {ops.V_o:7.5f} m³/s"
+        f"T_in = {ops.theta_a_i:5.1f} °C   "
+        f"w = {ops.w_fr:6.3f} m/s   "
+        f"ṁ = {ops.m_dot_a:6.3f} kg/s   "
+        f"V̇ = {ops.V_dot_a:7.5f} m³/s"
     )
     return coolant_line + "\n" + air_line
 
@@ -56,16 +56,16 @@ def format_geometry_info(geo) -> str:
     """Tube rows/count and frontal (inflow) area as height x width = area."""
     return (
         f"Geometry:      "
-        f"n_rows = {geo.n_rows:3d}   "
-        f"n_tubes = {geo.n_tubes:3d}   "
-        f"{geo.height:.3f} m x {geo.width:.3f} m = {geo.inflow_cross_section:.4f} m²"
+        f"n_rows = {geo.N_r:3d}   "
+        f"n_tubes = {geo.N_t:3d}   "
+        f"{geo.L_p:.3f} m x {geo.width:.3f} m = {geo.A_fr:.4f} m²"
     )
 
 
-def calc_pinch(T_coolant_out: float, T_air_in: float) -> float:
+def calc_pinch(theta_c_o: float, theta_a_i: float) -> float:
     """Cold-end temperature approach (pinch point) of the counterflow
     arrangement: coolant outlet vs. air inlet [K]."""
-    return T_coolant_out - T_air_in
+    return theta_c_o - theta_a_i
 
 
 def calc_deviation(value: float, reference: float) -> float:
@@ -73,24 +73,24 @@ def calc_deviation(value: float, reference: float) -> float:
     return (value - reference) / reference * 100.0
 
 
-def format_output_conditions(label: str, result, T_air_in: float, reference=None) -> str:
+def format_output_conditions(label: str, result, theta_a_i: float, reference=None) -> str:
     """Terminal text: outlet temperatures, pinch and Q; for LMTD/NTU
     (reference = the Cell SolverResult) their deviation from Cell; then
     final-iteration Pr/Re/Nu for both sides. The figure uses
     output_condition_cells() instead (subscripts, aligned columns)."""
     diagnostics = result.diagnostics
-    pinch = calc_pinch(result.T_coolant_out, T_air_in)
+    pinch = calc_pinch(result.theta_c_o, theta_a_i)
     T_co, T_ao, dT_pinch = "T_c,o", "T_a,o", "ΔT_pinch"
     alpha_i, alpha_R = "α_i", "α_R"
 
     lines = [
         f"{label} — Results",
-        f"{T_co} = {result.T_coolant_out:5.2f} °C   {T_ao} = {result.T_air_out:5.2f} °C   "
-        f"{dT_pinch} = {pinch:5.2f} K   Q = {result.dQ/1000:6.2f} kW",
+        f"{T_co} = {result.theta_c_o:5.2f} °C   {T_ao} = {result.theta_a_o:5.2f} °C   "
+        f"{dT_pinch} = {pinch:5.2f} K   Q = {result.Q_dot/1000:6.2f} kW",
     ]
     if reference is not None:
-        pinch_ref = calc_pinch(reference.T_coolant_out, T_air_in)
-        lines.append(f"vs. Cell:   Q {calc_deviation(result.dQ, reference.dQ):+5.2f} %   "
+        pinch_ref = calc_pinch(reference.theta_c_o, theta_a_i)
+        lines.append(f"vs. Cell:   Q {calc_deviation(result.Q_dot, reference.Q_dot):+5.2f} %   "
                      f"{dT_pinch} {calc_deviation(pinch, pinch_ref):+5.2f} %")
     lines += [
         "",
@@ -115,46 +115,46 @@ def format_output_conditions(label: str, result, T_air_in: float, reference=None
 def input_condition_cells(ops: OperatingConditions, geo) -> list:
     """Blocks for the input box: both media (same columns), then geometry."""
     media = [
-        [f"Coolant ({ops.coolant_type}):", r"$T_{c,i}$ =", f"{ops.T_coolant_in:5.1f} °C",
-         r"$w$ =", f"{ops.u_i:6.3f} m/s", r"$\dot{m}$ =", f"{ops.m_dot_1:6.3f} kg/s",
-         r"$\dot{V}$ =", f"{ops.V_coolant:8.5f} m³/s"],
-        [f"Air (φ = {ops.phi:4.2f}):", r"$T_{a,i}$ =", f"{ops.T_air_in:5.1f} °C",
-         r"$w$ =", f"{ops.w_f:6.3f} m/s", r"$\dot{m}$ =", f"{ops.m_dot_2:6.3f} kg/s",
-         r"$\dot{V}$ =", f"{ops.V_o:8.5f} m³/s"],
+        [f"Coolant ({ops.coolant_type}):", r"$T_{c,i}$ =", f"{ops.theta_c_i:5.1f} °C",
+         r"$w$ =", f"{ops.w_c:6.3f} m/s", r"$\dot{m}$ =", f"{ops.m_dot_c:6.3f} kg/s",
+         r"$\dot{V}$ =", f"{ops.V_dot_c:8.5f} m³/s"],
+        [f"Air (φ = {ops.phi:4.2f}):", r"$T_{a,i}$ =", f"{ops.theta_a_i:5.1f} °C",
+         r"$w$ =", f"{ops.w_fr:6.3f} m/s", r"$\dot{m}$ =", f"{ops.m_dot_a:6.3f} kg/s",
+         r"$\dot{V}$ =", f"{ops.V_dot_a:8.5f} m³/s"],
     ]
     geometry = [
-        ["Geometry:", r"$n_{rows}$ =", f"{geo.n_rows:d}", r"$n_{tubes}$ =", f"{geo.n_tubes:d}",
-         r"$H \times W$ =", f"{geo.height:.3f} m × {geo.width:.3f} m",
-         r"$A_{front}$ =", f"{geo.inflow_cross_section:.4f} m²"],
+        ["Geometry:", r"$n_{rows}$ =", f"{geo.N_r:d}", r"$n_{tubes}$ =", f"{geo.N_t:d}",
+         r"$H \times W$ =", f"{geo.L_p:.3f} m × {geo.width:.3f} m",
+         r"$A_{front}$ =", f"{geo.A_fr:.4f} m²"],
     ]
     return [media, geometry]
 
 
-def economics_cells(P_p, P_f, m_dot_w) -> list:
+def economics_cells(W_pump, W_fan, m_dot_ev) -> list:
     """Blocks for the economics box."""
     from src.economics import calc_total_power
-    P_total = calc_total_power(P_p, P_f)
+    W_total = calc_total_power(W_pump, W_fan)
     fmt_w = lambda v: f"{v:7.2f} W" if v is not None else "n/a"
-    return [[["Economics:", r"$P_{pump}$ =", fmt_w(P_p), r"$P_{fan}$ =", fmt_w(P_f),
-              r"$P_{total}$ =", fmt_w(P_total), r"$\dot{m}_{water}$ =",
-              f"{m_dot_w * 1000:6.3f} g/s" if m_dot_w is not None else "n/a"]]]
+    return [[["Economics:", r"$P_{pump}$ =", fmt_w(W_pump), r"$P_{fan}$ =", fmt_w(W_fan),
+              r"$P_{total}$ =", fmt_w(W_total), r"$\dot{m}_{water}$ =",
+              f"{m_dot_ev * 1000:6.3f} g/s" if m_dot_ev is not None else "n/a"]]]
 
 
-def output_condition_cells(label: str, result, T_air_in: float, reference=None) -> list:
+def output_condition_cells(label: str, result, theta_a_i: float, reference=None) -> list:
     """Blocks for one solver's result box: outlets/pinch/Q, for LMTD/NTU the
     deviation from Cell directly below the pinch and Q values, an empty
     line, then Pr/Re/Nu/alpha for both sides (own aligned columns)."""
     d = result.diagnostics
-    pinch = calc_pinch(result.T_coolant_out, T_air_in)
+    pinch = calc_pinch(result.theta_c_o, theta_a_i)
     outputs = [
-        ["Outputs:", r"$T_{c,o}$ =", f"{result.T_coolant_out:5.2f} °C", r"$T_{a,o}$ =",
-         f"{result.T_air_out:5.2f} °C", r"$\Delta T_{pinch}$ =", f"{pinch:5.2f} K", r"$Q$ =",
-         f"{result.dQ / 1000:6.2f} kW"],
+        ["Outputs:", r"$T_{c,o}$ =", f"{result.theta_c_o:5.2f} °C", r"$T_{a,o}$ =",
+         f"{result.theta_a_o:5.2f} °C", r"$\Delta T_{pinch}$ =", f"{pinch:5.2f} K", r"$Q$ =",
+         f"{result.Q_dot / 1000:6.2f} kW"],
     ]
     if reference is not None:
-        pinch_ref = calc_pinch(reference.T_coolant_out, T_air_in)
+        pinch_ref = calc_pinch(reference.theta_c_o, theta_a_i)
         outputs.append(["vs. Cell:", "", "", "", "", "", f"{calc_deviation(pinch, pinch_ref):+5.2f} %",
-                        "", f"{calc_deviation(result.dQ, reference.dQ):+6.2f} %"])
+                        "", f"{calc_deviation(result.Q_dot, reference.Q_dot):+6.2f} %"])
     numbers = [
         ["Coolant:", r"$Pr$ =", f"{d['Pr_coolant']:6.3f}", r"$Re$ =", f"{d['Re_coolant']:7.1f}",
          r"$Nu$ =", f"{d['Nu_coolant']:6.2f}", r"$\alpha_i$ =", f"{d['alpha_i']:7.1f} W/m²K"],
@@ -164,14 +164,14 @@ def output_condition_cells(label: str, result, T_air_in: float, reference=None) 
     return [[f"{label} — Results"], outputs, [""], numbers]
 
 
-def format_economics(P_p, P_f, m_dot_w) -> str:
+def format_economics(W_pump, W_fan, m_dot_ev) -> str:
     """Build the 'Economics' box: pump/fan/total power and water usage.
     Any value left as None (not yet available) prints as 'n/a'."""
-    pump_str = f"{P_p:7.2f} W" if P_p is not None else "    n/a"
-    fan_str = f"{P_f:7.2f} W" if P_f is not None else "    n/a"
-    P_total = calc_total_power(P_p, P_f)
-    total_str = f"{P_total:7.2f} W" if P_total is not None else "    n/a"
-    water_str = f"{m_dot_w * 1000:6.3f} g/s" if m_dot_w is not None else "   n/a"
+    pump_str = f"{W_pump:7.2f} W" if W_pump is not None else "    n/a"
+    fan_str = f"{W_fan:7.2f} W" if W_fan is not None else "    n/a"
+    W_total = calc_total_power(W_pump, W_fan)
+    total_str = f"{W_total:7.2f} W" if W_total is not None else "    n/a"
+    water_str = f"{m_dot_ev * 1000:6.3f} g/s" if m_dot_ev is not None else "   n/a"
 
     return (
         f"Economics — Pump: {pump_str}   Fan: {fan_str}   "
@@ -196,26 +196,26 @@ def draw_convergence(ax1, ax2, result: ScenarioResult, ops: OperatingConditions,
     color_ntu_hoterr = lighten_color(COLOR_NTU, 0.45)
     color_cell_hoterr = lighten_color(COLOR_CELL, 0.45)
 
-    max_len_temp = max(len(lmtd.history_T_coolant), len(ntu.history_T_coolant), len(cell.history_T_coolant))
+    max_len_temp = max(len(lmtd.history_theta_c_o), len(ntu.history_theta_c_o), len(cell.history_theta_c_o))
     max_len_err = max(len(lmtd.history_hot), len(ntu.history_hot), len(cell.history_hot))
 
     # --- Left: outlet temperatures -------------------------------------
-    plot_with_tail(ax1, lmtd.history_T_coolant, max_len_temp, COLOR_LMTD, r"LMTD – $T_{c,o}$")
-    plot_with_tail(ax1, lmtd.history_T_air, max_len_temp, color_lmtd_air, r"LMTD – $T_{a,o}$")
-    plot_with_tail(ax1, ntu.history_T_coolant, max_len_temp, COLOR_NTU, r"NTU – $T_{c,o}$")
-    plot_with_tail(ax1, ntu.history_T_air, max_len_temp, color_ntu_air, r"NTU – $T_{a,o}$")
-    plot_with_tail(ax1, cell.history_T_coolant, max_len_temp, COLOR_CELL, r"Cell – $T_{c,o}$")
-    plot_with_tail(ax1, cell.history_T_air, max_len_temp, color_cell_air, r"Cell – $T_{a,o}$")
+    plot_with_tail(ax1, lmtd.history_theta_c_o, max_len_temp, COLOR_LMTD, r"LMTD – $T_{c,o}$")
+    plot_with_tail(ax1, lmtd.history_theta_a_o, max_len_temp, color_lmtd_air, r"LMTD – $T_{a,o}$")
+    plot_with_tail(ax1, ntu.history_theta_c_o, max_len_temp, COLOR_NTU, r"NTU – $T_{c,o}$")
+    plot_with_tail(ax1, ntu.history_theta_a_o, max_len_temp, color_ntu_air, r"NTU – $T_{a,o}$")
+    plot_with_tail(ax1, cell.history_theta_c_o, max_len_temp, COLOR_CELL, r"Cell – $T_{c,o}$")
+    plot_with_tail(ax1, cell.history_theta_a_o, max_len_temp, color_cell_air, r"Cell – $T_{a,o}$")
 
-    ax1.axhline(ops.T_air_in, color='blue', linewidth=1.5, linestyle='--', alpha=0.8, zorder=1, label=r"$T_{a,i}$")
-    ax1.axhline(ops.T_coolant_in, color='red', linewidth=1.5, linestyle='--', alpha=0.8, zorder=1, label=r"$T_{c,i}$")
+    ax1.axhline(ops.theta_a_i, color='blue', linewidth=1.5, linestyle='--', alpha=0.8, zorder=1, label=r"$T_{a,i}$")
+    ax1.axhline(ops.theta_c_i, color='red', linewidth=1.5, linestyle='--', alpha=0.8, zorder=1, label=r"$T_{c,i}$")
 
     ax1.set_title(f"Outlet Temperatures ({omega_text})")
     ax1.set_xlabel("Iteration")
     ax1.set_ylabel("Temperature [°C]")
     ax1.legend(fontsize=9)
 
-    # --- Right: errors (dT_hot / dT_cold) -------------------------------
+    # --- Right: errors (Delta_theta_hot / Delta_theta_cold) -------------------------------
     plot_with_tail(ax2, lmtd.history_hot, max_len_err, color_lmtd_hoterr, r"LMTD – error $\Delta T_{hot}$")
     plot_with_tail(ax2, lmtd.history_cold, max_len_err, COLOR_LMTD, r"LMTD – error $\Delta T_{cold}$")
     plot_with_tail(ax2, ntu.history_hot, max_len_err, color_ntu_hoterr, r"NTU – error $\Delta T_{hot}$")

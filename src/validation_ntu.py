@@ -68,32 +68,32 @@ def eps_A_Gc41(NTU_A: float, C_A: float) -> float:
 CLOSED_FORMS = {1: eps_A_G11, 2: eps_A_Gc21, 3: eps_A_Gc31, 4: eps_A_Gc41}
 
 
-def closed_form_eps(n_rows: int, C_star: float, NTU: float, C_min_side: str) -> float:
+def closed_form_eps(N_r: int, C_star: float, NTU: float, C_min_side: str) -> float:
     """Exchanger effectiveness eps = q/q_max (based on C_min) from the
     Table 1 closed forms. C_star = C_min/C_max, NTU = UA/C_min (p. 289,
     Nomenclature); C_min_side = 'air' or 'tube'. Uses the Table 1 footnote
     conversions eps_B = eps_A C*_A, NTU_B = NTU_A C*_A, C*_A = 1/C*_B."""
     if C_min_side == 'tube':
         C_A, NTU_A = C_star, NTU                     # C_A = C_min
-        return CLOSED_FORMS[n_rows](NTU_A, C_A)
+        return CLOSED_FORMS[N_r](NTU_A, C_A)
     C_A, NTU_A = 1 / C_star, NTU * C_star            # C_A = C_max
-    return CLOSED_FORMS[n_rows](NTU_A, C_A) * C_A    # eps_B, B = air = C_min
+    return CLOSED_FORMS[N_r](NTU_A, C_A) * C_A    # eps_B, B = air = C_min
 
 
 # =============================================================================
 # Numerical model in the same dimensionless setting
 # =============================================================================
 
-def numerical_eps_and_P(n_rows: int, C_h: float, C_c: float, UA: float, n_elements: int):
+def numerical_eps_and_P(N_r: int, C_h: float, C_c: float, UA: float, n_elements: int):
     """Runs solvers.solve_ntu_field for one circuit (N_t = 1) and returns
     (eps, P): eps = q/(C_min (T_h,i - T_c,i)), P = air-side temperature
     effectiveness (p. 286, Eq. (7))."""
     _, _, _, T_h_out, T_c_out, _ = solve_ntu_field(
-        n_rows, n_elements,
+        N_r, n_elements,
         C_h_circuit=C_h,
         C_c_element=C_c / n_elements,                # C_c^e = C_c/(N_e N_t), N_t = 1
-        UA_element=UA / (n_rows * n_elements),       # (UA)^e = UA/(N_e N_t N_r)
-        T_coolant_in=1.0, T_air_in=0.0,
+        UA_element=UA / (N_r * n_elements),       # (UA)^e = UA/(N_e N_t N_r)
+        theta_c_i=1.0, theta_a_i=0.0,
         tol=1e-11, max_iter=100000,
     )
     q = C_h * (1.0 - T_h_out)
@@ -160,17 +160,17 @@ def run_validation(n_elements: int = 100, tol_closed: float = 1e-4, tol_table: f
 
     print(f"\n2) Numerical model vs. Table 1 closed forms (N_e = {n_elements})")
     worst = 0.0
-    for n_rows in (1, 2, 3, 4):
+    for N_r in (1, 2, 3, 4):
         for C_star in (0.2, 0.5, 1.0):
             for NTU in (0.5, 2.0, 5.0):
                 for side in ('air', 'tube'):
                     C_h, C_c = (1.0, 1.0 / C_star) if side == 'tube' else (1.0 / C_star, 1.0)
-                    eps_num, _ = numerical_eps_and_P(n_rows, C_h, C_c, NTU * min(C_h, C_c), n_elements)
-                    err = abs(eps_num - closed_form_eps(n_rows, C_star, NTU, side))
+                    eps_num, _ = numerical_eps_and_P(N_r, C_h, C_c, NTU * min(C_h, C_c), n_elements)
+                    err = abs(eps_num - closed_form_eps(N_r, C_star, NTU, side))
                     worst = max(worst, err)
                     if err > tol_closed:
                         ok = False
-                        print(f"   FAIL n={n_rows} C*={C_star} NTU={NTU} C_min={side}: |d eps| = {err:.2e}")
+                        print(f"   FAIL n={N_r} C*={C_star} NTU={NTU} C_min={side}: |d eps| = {err:.2e}")
     print(f"   {4 * 3 * 3 * 2} cases, max |eps_num - eps_closed| = {worst:.2e}  "
           f"({'ok' if worst <= tol_closed else 'FAIL'}, tol {tol_closed:.0e})")
 
@@ -178,13 +178,13 @@ def run_validation(n_elements: int = 100, tol_closed: float = 1e-4, tol_table: f
     worst = 0.0
     for (R, NTU), refs in TABLE5.items():
         C_h, C_c = 1.0, R                            # R = C_c/C_h
-        for n_rows, ref in zip(TABLE5_PASSES, refs):
-            _, P = numerical_eps_and_P(n_rows, C_h, C_c, NTU * min(C_h, C_c), n_elements)
+        for N_r, ref in zip(TABLE5_PASSES, refs):
+            _, P = numerical_eps_and_P(N_r, C_h, C_c, NTU * min(C_h, C_c), n_elements)
             err = abs(P - ref)
             worst = max(worst, err)
             if err > tol_table:
                 ok = False
-                print(f"   FAIL n={n_rows} R={R} NTU={NTU}: P = {P:.5f}, Table 5 = {ref:.4f}")
+                print(f"   FAIL n={N_r} R={R} NTU={NTU}: P = {P:.5f}, Table 5 = {ref:.4f}")
     print(f"   {len(TABLE5) * len(TABLE5_PASSES)} points, max |P_num - P_table| = {worst:.2e}  "
           f"({'ok' if worst <= tol_table else 'FAIL'}, tol {tol_table:.1e})")
 

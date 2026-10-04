@@ -38,8 +38,8 @@ def _plot_solver_panel(ax_T, profile, color, T_ticks, k_ticks, dQdL_ticks, title
     across all three, even though the actual values differ per axis."""
     color_air = lighten_color(color, 0.55)
 
-    ax_T.plot(profile.x_frac, profile.T_coolant, color=color, linewidth=2.2, label=r"$T_c$ (coolant)")
-    ax_T.plot(profile.x_frac, profile.T_air, color=color_air, linewidth=2.2, linestyle='--', label=r"$T_a$ (air)")
+    ax_T.plot(profile.x_frac, profile.theta_c, color=color, linewidth=2.2, label=r"$T_c$ (coolant)")
+    ax_T.plot(profile.x_frac, profile.theta_a, color=color_air, linewidth=2.2, linestyle='--', label=r"$T_a$ (air)")
     ax_T.set_ylabel("Temperature [°C]", color=color)
     ax_T.set_ylim(T_ticks[0], T_ticks[-1])
     ax_T.set_yticks(T_ticks)
@@ -78,9 +78,9 @@ BOX_FACECOLORS = {'LMTD': "#eaf5ec", 'NTU': "#f3ecf5", 'Cell': "#fdf0e0"}
 
 
 def plot_cooler_results(result: ScenarioResult, ops, geo, label: str, n_segments: int, n_elements: int,
-                        P_p=None, P_f=None, m_dot_w=None):
+                        W_pump=None, W_fan=None, m_dot_ev=None):
     """Returns the figure (does NOT call plt.show()). LMTD/NTU boxes also
-    show their Q and pinch deviation from Cell. P_p/P_f/m_dot_w: economics,
+    show their Q and pinch deviation from Cell. W_pump/W_fan/m_dot_ev: economics,
     None for whichever aren't computed."""
     profiles = {
         'LMTD': calc_lmtd_profile(result.lmtd, ops, geo),
@@ -90,7 +90,7 @@ def plot_cooler_results(result: ScenarioResult, ops, geo, label: str, n_segments
     solver_results = {'LMTD': result.lmtd, 'NTU': result.ntu, 'Cell': result.cell}
     colors = {'LMTD': COLOR_LMTD, 'NTU': COLOR_NTU, 'Cell': COLOR_CELL}
 
-    T_ticks = _nice_ticks(*_data_range(*[a for p in profiles.values() for a in (p.T_coolant, p.T_air)]))
+    T_ticks = _nice_ticks(*_data_range(*[a for p in profiles.values() for a in (p.theta_c, p.theta_a)]))
     k_ticks = _nice_ticks(*_data_range(*[p.k for p in profiles.values()]))
     dQdL_ticks = _nice_ticks(*_data_range(*[p.dQdL for p in profiles.values()]))
 
@@ -102,14 +102,14 @@ def plot_cooler_results(result: ScenarioResult, ops, geo, label: str, n_segments
     ax_header = fig.add_subplot(grid[0, :])
     ax_header.axis("off")
     draw_text_grid(ax_header, 0.5, 0.66, input_condition_cells(ops, geo), "whitesmoke", "gray")
-    draw_text_grid(ax_header, 0.5, 0.08, economics_cells(P_p, P_f, m_dot_w), "#e8eef5", "#4a6fa5")
+    draw_text_grid(ax_header, 0.5, 0.08, economics_cells(W_pump, W_fan, m_dot_ev), "#e8eef5", "#4a6fa5")
 
     # --- One row per solver: result box | profile -------------------------
     for row, name in enumerate(('LMTD', 'NTU', 'Cell'), start=1):
         ax_text = fig.add_subplot(grid[row, 0])
         ax_text.axis("off")
         reference = None if name == 'Cell' else result.cell
-        draw_text_grid(ax_text, 0.5, 0.5, output_condition_cells(name, solver_results[name], ops.T_air_in,
+        draw_text_grid(ax_text, 0.5, 0.5, output_condition_cells(name, solver_results[name], ops.theta_a_i,
                                                                  reference=reference),
                        BOX_FACECOLORS[name], colors[name])
         ax_profile = fig.add_subplot(grid[row, 1])

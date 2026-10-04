@@ -6,7 +6,7 @@ and shows the resulting figures together. See scenario_pipeline.py for what
 actually gets solved/plotted.
 
 Run modes default to parameters.py (INSIGHT_MODE, PLOT_RESULTS,
-PLOT_CONVERGENCE, BENCHMARK_MODE, RESOLUTION_MODE); each can be overridden
+PLOT_CONVERGENCE, BENCHMARK_MODE, RESOLUTION_MODE, CELL_2D); each can be overridden
 per run, in any combination:
     python main.py --no-insight --no-plots --no-benchmark   # fast: summary only
     python main.py --convergence                            # + convergence figures
@@ -35,6 +35,8 @@ def parse_args():
                         help="caching benchmark + solver-performance figure")
     parser.add_argument("--resolution", action=argparse.BooleanOptionalAction, default=None,
                         help="resolution sweep + its figure")
+    parser.add_argument("--cell-2d", action=argparse.BooleanOptionalAction, default=None,
+                        help="Cell solves one representative tube (2D) instead of all tubes (3D)")
     return parser.parse_args()
 
 
@@ -51,7 +53,7 @@ def run():
     args = parse_args()
     modes = get_run_modes(insight_mode=args.insight, plot_results=args.plots,
                           plot_convergence=args.convergence, benchmark_mode=args.benchmark,
-                          resolution_mode=args.resolution)
+                          resolution_mode=args.resolution, cell_2d=args.cell_2d)
     setup_logging(modes.insight_mode)
 
     t_start = time.perf_counter()

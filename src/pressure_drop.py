@@ -55,19 +55,27 @@ def calc_visc_corr_c(mu_bulk: float, mu_wall: float, Re: float) -> float:
 
 
 def calc_delta_p_coolant(geo, ops, coolant_state) -> float:
-    """Total coolant-side pressure drop [Pa]: n_rows passes, each with
-    straight-pipe friction plus a fixed reversal allowance.
-    Source: Towler2022, Ch. 19, p. 851, Eq. (19.20)."""
-    u_i = ops.u_i
+    """Total coolant-side pressure drop [Pa]: N_p = N_r passes, each with
+    straight-pipe friction over ONE pass length L_p (= geo.L_p) plus
+    1.5*(2*N_p - 1)/N_p velocity heads per pass for contraction (0.5) and
+    expansion (1.0) at every pass and the N_p - 1 180-degree bends (1.5 each).
+    Source: Towler, Chemical Engineering Design, 3rd ed., Sec. 19.8
+    (Eq. 19.20); friction factor as Darcy f = 8 j_f (VDI L1.2).
+    Fixed 2026-10: previously used geo.l (all passes) as the per-pass
+    length, counting friction N_r times too often (10.7 vs. 2.5 kPa)."""
+    w_c = ops.w_c
     rho = coolant_state.rho
     mu = coolant_state.mu
     mu_w = mu  # TEMP: no wall-temperature model yet -- visc_corr_c = 1.0 until then
 
-    Re = calc_Re_coolant(u_i, geo.d_i, rho, mu)
+    Re = calc_Re_coolant(w_c, geo.d_i, rho, mu)
     f_c = calc_f_coolant(Re)
     visc_corr_c = calc_visc_corr_c(mu, mu_w, Re)
 
-    return geo.n_rows * (f_c * (geo.l / geo.d_i) * visc_corr_c + (0.5 + 1.0 + 1.5*(geo.n_rows - 1)/geo.n_rows)) * (rho * u_i**2 / 2)
+    N_p = geo.N_r
+    L_p = geo.L_p                                   # length of ONE tube pass
+    K_pass = 1.5 * (2 * N_p - 1) / N_p                 # = 0.5 + 1.0 + 1.5*(N_p - 1)/N_p
+    return N_p * (f_c * (L_p / geo.d_i) * visc_corr_c + K_pass) * (rho * w_c**2 / 2)
     
 
 # =============================================================================
@@ -77,13 +85,13 @@ def calc_delta_p_coolant(geo, ops, coolant_state) -> float:
 # Pressure-drop relation: Kays & London core equation as used by Wang & Chi,
 # Part I, Eq. (17). Wang's f was reduced from data with this same relation
 # and no separate entrance/exit coefficients (Kc/Ke) -- do not add them here.
-# Minimum-gap velocity/area reuse Geometry.Ao_Ae_ratio (= Afr/Ac = 1/sigma).
+# Minimum-gap velocity/area reuse Geometry.Afr_Ae_ratio (= Afr/Ac = 1/sigma).
 # =============================================================================
 
 # Wang Part II applicability (p. 2700, Conclusions), SI units.
 WANG_RANGE = {
-    'n_rows': (1, 6),
-    'd_a':    (6.35e-3, 12.7e-3),
+    'N_r': (1, 6),
+    'd':    (6.35e-3, 12.7e-3),
     'F_p':    (1.19e-3, 8.7e-3),
     'P_t':    (17.7e-3, 31.75e-3),
     'P_l':    (12.4e-3, 27.5e-3),
@@ -98,10 +106,10 @@ def check_wang_range(geo) -> None:
             warnings.warn(f"Wang correlation: {name} = {value:g} outside tested range [{lo:g}, {hi:g}]")
 
 
-def calc_wang_F1(P_t: float, P_l: float, F_p: float, d_c: float, n_rows: int) -> float:
+def calc_wang_F1(P_t: float, P_l: float, F_p: float, D_c: float, N_r: int) -> float:
     """Source: Wang et al., Part II, p. 2699, Eq. (13):
     F1 = -0.764 + 0.739*(Pt/Pl) + 0.177*(Fp/Dc) - 0.00758/N."""
-    return -0.764 + 0.739 * (P_t / P_l) + 0.177 * (F_p / d_c) - 0.00758 / n_rows
+    return -0.764 + 0.739 * (P_t / P_l) + 0.177 * (F_p / D_c) - 0.00758 / N_r
 
 
 def calc_wang_F2(Re_Dc: float) -> float:
@@ -114,36 +122,36 @@ def calc_wang_F3(Re_Dc: float) -> float:
     return 1.696 - 15.695 / log(Re_Dc)
 
 
-def calc_f_wang(Re_Dc: float, P_t: float, P_l: float, F_p: float, d_c: float, n_rows: int) -> float:
+def calc_f_wang(Re_Dc: float, P_t: float, P_l: float, F_p: float, D_c: float, N_r: int) -> float:
     """Wang plain-fin friction factor f [-]. Tube pitches P_t/P_l, fin
-    pitch F_p and collar diameter d_c follow Wang's own notation. Re_Dc is based on d_c and the minimum-gap
-    velocity w_e (heat_transfer_core.calc_Re_air with d = d_c).
+    pitch F_p and collar diameter D_c follow Wang's own notation. Re_Dc is based on D_c and the minimum-gap
+    velocity w_e (heat_transfer_core.calc_Re_air with d = D_c).
     Source: Wang et al., Part II, p. 2699, Eq. (12):
     f = 0.0267 * ReDc^F1 * (Pt/Pl)^F2 * (Fp/Dc)^F3.
     Applicability: see WANG_RANGE."""
-    F1 = calc_wang_F1(P_t, P_l, F_p, d_c, n_rows)
+    F1 = calc_wang_F1(P_t, P_l, F_p, D_c, N_r)
     F2 = calc_wang_F2(Re_Dc)
     F3 = calc_wang_F3(Re_Dc)
-    return 0.0267 * Re_Dc**F1 * (P_t / P_l)**F2 * (F_p / d_c)**F3
+    return 0.0267 * Re_Dc**F1 * (P_t / P_l)**F2 * (F_p / D_c)**F3
 
 
-def calc_G_c(m_dot_air: float, A_c: float) -> float:
+def calc_G_e(m_dot_air: float, A_e: float) -> float:
     """Mass flux at the minimum flow area [kg/m^2s].
     Source: Wang & Chi, Part I, Nomenclature, p. 2682: Gc = rho*Vmax."""
-    return m_dot_air / A_c
+    return m_dot_air / A_e
 
 
-def calc_delta_p_platefin_air(f: float, A_total: float, A_c: float, G_c: float, sigma: float,
-                              rho_in: float, rho_out: float = None) -> float:
+def calc_delta_p_platefin_air(f: float, A_tot: float, A_e: float, G_e: float, sigma: float,
+                              rho_a_i: float, rho_a_o: float = None) -> float:
     """Air-side pressure drop across a continuous plate-fin bundle [Pa].
-    rho_out defaults to rho_in (no acceleration term) if not given.
+    rho_a_o defaults to rho_a_i (no acceleration term) if not given.
     Source: Wang & Chi, Part I, p. 2687, Eq. (17), citing Kays and
     London, Compact Heat Exchangers, 3rd ed., 1984."""
-    if rho_out is None:
-        rho_out = rho_in
-    rho_m = 2.0 * rho_in * rho_out / (rho_in + rho_out)  # mean of specific volumes
-    return (G_c**2 / (2.0 * rho_in)) * (f * (A_total / A_c) * (rho_in / rho_m)
-                                        + (1.0 + sigma**2) * (rho_in / rho_out - 1.0))
+    if rho_a_o is None:
+        rho_a_o = rho_a_i
+    rho_a_m = 2.0 * rho_a_i * rho_a_o / (rho_a_i + rho_a_o)  # mean of specific volumes
+    return (G_e**2 / (2.0 * rho_a_i)) * (f * (A_tot / A_e) * (rho_a_i / rho_a_m)
+                                        + (1.0 + sigma**2) * (rho_a_i / rho_a_o - 1.0))
 
 
 def calc_delta_p_bundle_air(geo, ops, air_in, air_out, air_mean) -> float:
@@ -153,28 +161,28 @@ def calc_delta_p_bundle_air(geo, ops, air_in, air_out, air_mean) -> float:
     temperature, used for Re_Dc (and thus f)."""
     check_wang_range(geo)
 
-    A_c = geo.A_c_air  # TODO check other ratio from WangII source
-    G_c = calc_G_c(ops.m_dot_2, A_c)
-    sigma = 1.0 / geo.Ao_Ae_ratio
+    A_e = geo.A_e  # TODO check other ratio from WangII source
+    G_e = calc_G_e(ops.m_dot_a, A_e)
+    sigma = 1.0 / geo.Afr_Ae_ratio
 
-    # G_c is fixed by continuity, so the min-gap velocity at the mean
-    # state is G_c / rho_mean.
-    w_e_mean = G_c / air_mean.rho
-    Re_Dc = calc_Re_air(geo.d_c, w_e_mean, air_mean.rho, air_mean.mu)
-    f = calc_f_wang(Re_Dc, geo.P_t, geo.P_l, geo.F_p, geo.d_c, geo.n_rows)
+    # G_e is fixed by continuity, so the min-gap velocity at the mean
+    # state is G_e / rho_mean.
+    w_e_m = G_e / air_mean.rho
+    Re_Dc = calc_Re_air(geo.D_c, w_e_m, air_mean.rho, air_mean.mu)
+    f = calc_f_wang(Re_Dc, geo.P_t, geo.P_l, geo.F_p, geo.D_c, geo.N_r)
 
-    return calc_delta_p_platefin_air(f, geo.A_total, A_c, G_c, sigma, air_in.rho, air_out.rho)
+    return calc_delta_p_platefin_air(f, geo.A_tot, A_e, G_e, sigma, air_in.rho, air_out.rho)
 
 
 def calc_delta_p_pad() -> float:
     """Pressure drop across the adiabatic pre-cooler pad [Pa]."""
-    return 50  # Range for standard 300 mm cooler 34.8 Pa to 74.6 Pa (ASHRAE2020 Chapter 41), may not be active during dry operation (other inlet, TODO)
+    return 50  # 300 mm rigid-media pad: 34.8-74.6 Pa (ASHRAE Handbook 2020, Ch. 41); dry operation: see PAD_IN_DRY_AIR_PATH
 
 
-def calc_delta_p_air_total(delta_p_bundle: float, delta_p_pad: float = None) -> float:
+def calc_delta_p_air_total(Delta_P_bundle: float, Delta_P_pad: float = None) -> float:
     """Total air-side pressure drop [Pa]: bundle plus pad, if the air passes
     the pad (always when precooling; in dry operation see
-    parameters.PAD_IN_DRY_AIR_PATH). delta_p_pad None = no pad in the path."""
-    if delta_p_pad is None:
-        return delta_p_bundle
-    return delta_p_bundle + delta_p_pad
+    parameters.PAD_IN_DRY_AIR_PATH). Delta_P_pad None = no pad in the path."""
+    if Delta_P_pad is None:
+        return Delta_P_bundle
+    return Delta_P_bundle + Delta_P_pad

@@ -18,21 +18,27 @@ from math import log10, log, tanh
 # 1. AIR-SIDE HELPERS
 # =============================================================================
 
-def calc_w_e(w_f: float, Ao_Ae_ratio: float) -> float:
-    """Effective (minimum free cross-section) air velocity [m/s]."""
-    return w_f * Ao_Ae_ratio
+def calc_w_e(w_fr: float, Afr_Ae_ratio: float) -> float:
+    """Effective (minimum free cross-section) air velocity [m/s],
+    w_e = w_0 * A_0/A_e. Source: VDI-Wärmeatlas (2019), Chapter M1, worked example p. 1689."""
+    return w_fr * Afr_Ae_ratio
 
 
-def calc_w_e_T(w_f: float, Ao_Ae_ratio: float, T_mean: float, T_in: float) -> float:
+def calc_w_e_T(w_fr: float, Afr_Ae_ratio: float, theta_m: float, theta_i: float) -> float:
     """Effective air velocity, corrected for thermal expansion between
-    inlet and mean bulk temperature [m/s]."""
-    w_e = calc_w_e(w_f, Ao_Ae_ratio)
-    return w_e * ((273.15 + T_mean) / (273.15 + T_in))
+    inlet and mean bulk temperature [m/s]: w_eT = w_e * T_m / T_i (Kelvin).
+    Source: VDI-Wärmeatlas (2019), Chapter M1, worked example p. 1689."""
+    w_e = calc_w_e(w_fr, Afr_Ae_ratio)
+    T_m = theta_m + 273.15                 # mean air temperature [K]
+    T_i = theta_i + 273.15                 # inlet air temperature [K]
+    return w_e * (T_m / T_i)
 
 
 def calc_Re_air(d: float, w_e_T: float, rho_air: float, mu_air: float) -> float:
     """Air-side Reynolds number, based on diameter d (tube outer diameter
-    d_a for heat transfer, fin-collar diameter d_c for Wang's friction factor)."""
+    d for heat transfer, fin-collar diameter D_c for Wang's friction factor).
+    Source: VDI-Wärmeatlas (2019), Chapter M1, worked example p. 1689 (Re_d = d w_eT rho / eta); Wang, Chi & Chang (2000),
+    Part II, Nomenclature (Re_Dc)."""
     return (d * w_e_T * rho_air) / mu_air
 
 
@@ -41,7 +47,7 @@ def calc_Re_air(d: float, w_e_T: float, rho_air: float, mu_air: float) -> float:
 # C=0.38] and Gl. (18) [staggered, n=1-3 rows: C=0.33 for n=2, C=0.36 for
 # n=3]. Confirmed 2026-08 against the 12th ed. -- the row-count prefactor
 # is the book's own C, not an invented correction.
-# Book's stated validity range: 10^3 < Re_d < 10^5, 5 <= A/A_Go <= 30
+# Book's stated validity range: 10^3 < Re_d < 10^5, 5 <= A/A_p0 <= 30
 # (not currently enforced/warned on here).
 # -----------------------------------------------------------------------
 def calc_Nu_air(A_ratio: float, Pr_air: float, d: float, n: int, w_e_T: float, rho_air: float, mu_air: float) -> float:
@@ -63,7 +69,7 @@ def calc_Nu_air(A_ratio: float, Pr_air: float, d: float, n: int, w_e_T: float, r
 
 def calc_alpha_R(Nu_air: float, lambda_air: float, d: float) -> float:
     """Air-side heat transfer coefficient, referred to the outer (finned)
-    surface [W/m²K]."""
+    surface [W/m²K]: alpha_R = Nu_d lambda / d. Source: VDI-Wärmeatlas (2019), Chapter M1, worked example p. 1689."""
     return (Nu_air * lambda_air) / d
 
 
@@ -75,19 +81,19 @@ def calc_alpha_R(Nu_air: float, lambda_air: float, d: float) -> float:
 #
 # Source: VDI Heat Atlas, Section M1, p. 1687, Eq. (13)   [in-line rows]
 # -----------------------------------------------------------------------
-def calc_fin_efficiency_inline(P_t: float, P_l: float, d_a: float, alpha_R: float, lambda_f: float, delta_R: float) -> float:
+def calc_fin_efficiency_inline(P_t: float, P_l: float, d: float, alpha_R: float, lambda_f: float, delta_f: float) -> float:
     # Determine bR and lR such that lR >= bR
     bR = min(P_t, P_l)
     lR = max(P_t, P_l)
 
     # Source: VDI M1, p. 1687, Eq. (13)
-    phi_0 = 1.28 * (bR / d_a) * ((lR / bR) - 0.2)**0.5
+    phi_0 = 1.28 * (bR / d) * ((lR / bR) - 0.2)**0.5
 
     # Source: VDI M1, p. 1687, Eq. (12)
     phi = (phi_0 - 1) * (1 + 0.35 * log(phi_0))
 
-    # Source: VDI M1, p. 1687, Eq. (7) [eta_R = tanh(X)/X] and Eq. (8) [X]
-    X = phi * d_a / 2 * ((2 * alpha_R) / (lambda_f * delta_R))**0.5
+    # Source: VDI M1, p. 1687, Eq. (7) [eta_f = tanh(X)/X] and Eq. (8) [X]
+    X = phi * d / 2 * ((2 * alpha_R) / (lambda_f * delta_f))**0.5
     return tanh(X) / X
 
 
@@ -97,7 +103,7 @@ def calc_fin_efficiency_inline(P_t: float, P_l: float, d_a: float, alpha_R: floa
 # (shares the phi_0 -> phi -> X -> tanh(X)/X chain with Eq. (12), see
 # calc_fin_efficiency_inline() above for the Eq. (13) in-line variant)
 # -----------------------------------------------------------------------
-def calc_fin_efficiency_staggered(P_t: float, P_l: float, d_a: float, alpha_R: float, lambda_f: float, delta_R: float) -> float:
+def calc_fin_efficiency_staggered(P_t: float, P_l: float, d: float, alpha_R: float, lambda_f: float, delta_f: float) -> float:
     if P_l >= P_t / 2:
         bR = P_t
     else:
@@ -106,20 +112,22 @@ def calc_fin_efficiency_staggered(P_t: float, P_l: float, d_a: float, alpha_R: f
     lR = (P_l**2 + (P_t / 2)**2)**0.5
 
     # Source: VDI M1, p. 1687, Eq. (14)
-    phi_0 = 1.27 * (bR / d_a) * ((lR / bR) - 0.3)**0.5
+    phi_0 = 1.27 * (bR / d) * ((lR / bR) - 0.3)**0.5
 
     # Source: VDI M1, p. 1687, Eq. (12)
     phi = (phi_0 - 1) * (1 + 0.35 * log(phi_0))
 
-    # Source: VDI M1, p. 1687, Eq. (7) [eta_R = tanh(X)/X] and Eq. (8) [X]
-    X = phi * d_a / 2 * ((2 * alpha_R) / (lambda_f * delta_R))**0.5
+    # Source: VDI M1, p. 1687, Eq. (7) [eta_f = tanh(X)/X] and Eq. (8) [X]
+    X = phi * d / 2 * ((2 * alpha_R) / (lambda_f * delta_f))**0.5
     return tanh(X) / X
 
 
-def calc_alpha_S(alpha_R: float, eta_R: float, A: float, A_R: float) -> float:
+def calc_alpha_S(alpha_R: float, eta_f: float, A: float, A_f: float) -> float:
     """Air-side heat transfer coefficient corrected for fin efficiency,
-    referred to the total outer surface [W/m²K]."""
-    return alpha_R * (1 - (1 - eta_R) * (A_R / A))
+    referred to the total outer surface [W/m²K]:
+    alpha_S = alpha_R * [1 - (1 - eta_f) * A_f/A].
+    Source: VDI-Wärmeatlas (2019), Chapter M1 (and worked example p. 1689)."""
+    return alpha_R * (1 - (1 - eta_f) * (A_f / A))
 
 
 # =============================================================================
@@ -153,7 +161,8 @@ def calc_Nu_laminar(Re: float, Pr: float, d_i: float, l: float) -> float:
 
 
 def calc_Re_coolant(w: float, d_i: float, rho_coolant: float, cool_mu: float) -> float:
-    """Coolant-side (tube) Reynolds number."""
+    """Coolant-side (tube) Reynolds number Re = w d_i rho / eta.
+    Source: VDI-Wärmeatlas (2019), Chapter G1."""
     return (d_i * w * rho_coolant) / cool_mu
 
 
@@ -185,7 +194,8 @@ def calc_Nu_coolant(w: float, d_i: float, l: float, rho_coolant: float, cool_mu:
 
 
 def calc_alpha_i(w: float, d_i: float, l: float, rho_coolant: float, cool_mu: float, cool_Pr: float, cool_lambda: float) -> float:
-    """Coolant-side heat transfer coefficient [W/m²K]."""
+    """Coolant-side heat transfer coefficient alpha_i = Nu lambda / d_i
+    [W/m²K]. Source: VDI-Wärmeatlas (2019), Chapter G1."""
     Nu, Re = calc_Nu_coolant(w, d_i, l, rho_coolant, cool_mu, cool_Pr)
     return (Nu * cool_lambda) / d_i
 
@@ -194,46 +204,47 @@ def calc_alpha_i(w: float, d_i: float, l: float, rho_coolant: float, cool_mu: fl
 # 3. ORCHESTRATORS -- the main API surface used by the solvers
 # =============================================================================
 
-def _compute_air_side(geo, ops, air_state, T_air_out: float):
+def _compute_air_side(geo, ops, air_state, theta_a_o: float):
     """Air-side intermediates shared by calc_overall_k and calc_diagnostics:
     thermally-corrected effective velocity, Nusselt number, and the
     resulting heat transfer coefficient referred to the bare tube surface."""
-    T_air_mean = (ops.T_air_in + T_air_out) / 2.0
+    theta_a_m = (ops.theta_a_i + theta_a_o) / 2.0
 
     w_e_T = calc_w_e_T(
-        w_f=ops.w_f,
-        Ao_Ae_ratio=geo.Ao_Ae_ratio,
-        T_mean=T_air_mean,
-        T_in=ops.T_air_in,
+        w_fr=ops.w_fr,
+        Afr_Ae_ratio=geo.Afr_Ae_ratio,
+        theta_m=theta_a_m,
+        theta_i=ops.theta_a_i,
     )
 
     Nu_air = calc_Nu_air(
-        A_ratio=(geo.A / geo.A_Go),
+        A_ratio=(geo.A / geo.A_p0),
         Pr_air=air_state.Pr,
-        d=geo.d_a,
-        n=geo.n_rows,
+        d=geo.d,
+        n=geo.N_r,
         w_e_T=w_e_T,
         rho_air=air_state.rho,
         mu_air=air_state.mu,
     )
 
-    alpha_R = calc_alpha_R(Nu_air, air_state.lambda_, geo.d_a)
+    alpha_R = calc_alpha_R(Nu_air, air_state.lambda_, geo.d)
     return w_e_T, Nu_air, alpha_R
 
 
-def calc_overall_k(geo, ops, coolant_state, air_state, T_air_out: float) -> float:
+def calc_overall_k(geo, ops, coolant_state, air_state, theta_a_o: float) -> float:
     """Overall heat transfer coefficient k [W/m²K], referred to the outer
-    (air-side) surface. Called once per solver iteration with the
-    current guess for T_air_out."""
+    (air-side) surface: 1/k = 1/alpha_S + A/A_i * (1/alpha_i + (d - d_i)/(2 lambda_G)).
+    Source: VDI-Wärmeatlas (2019), Chapter M1; VDI-Wärmeatlas (2019), Chapter M1, worked example p. 1689.
+    Called once per solver iteration with the current guess for theta_a_o."""
 
     # --- Air side (outer) ---------------------------------------------
-    w_e_T, Nu_air, alpha_R = _compute_air_side(geo, ops, air_state, T_air_out)
-    eta_R = calc_fin_efficiency_staggered(geo.P_t, geo.P_l, geo.d_a, alpha_R, geo.lambda_f, geo.delta_R)
-    alpha_S = calc_alpha_S(alpha_R, eta_R, geo.A, geo.A_R)
+    w_e_T, Nu_air, alpha_R = _compute_air_side(geo, ops, air_state, theta_a_o)
+    eta_f = calc_fin_efficiency_staggered(geo.P_t, geo.P_l, geo.d, alpha_R, geo.lambda_f, geo.delta_f)
+    alpha_S = calc_alpha_S(alpha_R, eta_f, geo.A, geo.A_f)
 
     # --- Coolant side (inner) ------------------------------------------
     alpha_i = calc_alpha_i(
-        w=ops.u_i,
+        w=ops.w_c,
         d_i=geo.d_i,
         l=geo.l,
         rho_coolant=coolant_state.rho,
@@ -243,26 +254,26 @@ def calc_overall_k(geo, ops, coolant_state, air_state, T_air_out: float) -> floa
     )
 
     # --- Combine into overall k -----------------------------------------
-    k_inv = (1 / alpha_S) + (geo.A / geo.A_i) * ((1 / alpha_i) + (geo.d_a - geo.d_i) / (2 * geo.lambda_p))
+    k_inv = (1 / alpha_S) + (geo.A / geo.A_i) * ((1 / alpha_i) + (geo.d - geo.d_i) / (2 * geo.lambda_p))
 
     return k_inv ** (-1)
 
 
-def calc_diagnostics(geo, ops, coolant_state, air_state, T_air_out: float) -> dict:
+def calc_diagnostics(geo, ops, coolant_state, air_state, theta_a_o: float) -> dict:
     """
     Recomputes the dimensionless groups (Pr, Re, Nu) for both sides using
-    the SAME states/T_air_out that were fed into calc_overall_k for a given
+    the SAME states/theta_a_o that were fed into calc_overall_k for a given
     iteration. Intended to be called once more after convergence, using the
     final converged states, to report final Re/Nu/Pr alongside the outlet
     temperatures and heat transfer rate.
     """
     # --- Air side --------------------------------------------------------
-    w_e_T, Nu_air, alpha_R = _compute_air_side(geo, ops, air_state, T_air_out)
-    Re_air = calc_Re_air(geo.d_a, w_e_T, air_state.rho, air_state.mu)
+    w_e_T, Nu_air, alpha_R = _compute_air_side(geo, ops, air_state, theta_a_o)
+    Re_air = calc_Re_air(geo.d, w_e_T, air_state.rho, air_state.mu)
 
     # --- Coolant side ------------------------------------------------------
     Nu_coolant, Re_coolant = calc_Nu_coolant(
-        w=ops.u_i,
+        w=ops.w_c,
         d_i=geo.d_i,
         l=geo.l,
         rho_coolant=coolant_state.rho,
@@ -286,8 +297,5 @@ def calc_diagnostics(geo, ops, coolant_state, air_state, T_air_out: float) -> di
         'alpha_i': alpha_i,
     }
 
-# NOTE: an earlier capacity-flow-ratio helper chain (calc_heat_cap_flow_*,
-# calc_cap_flow_ratio) was removed here as dead code (unreferenced; NTU's
-# solver computes R1=W1/W2 inline instead). It used geo.d_i -- a coolant-side
-# dimension -- for both sides, which would have been a bug if ever revived.
+
 

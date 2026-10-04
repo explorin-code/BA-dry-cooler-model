@@ -34,49 +34,41 @@ unconfirmed until checked off.
     + Kays & London core relation (`calc_f_wang`,
     `calc_delta_p_platefin_air`, orchestrated by `calc_delta_p_bundle_air`).
     Formulas were transcribed with AI help and not yet checked against the
-    papers. `w_e`/`A_c`/sigma reuse `Geometry.Ao_Ae_ratio` (taken as
-    Afr/Ac). The old VDI code is still in the commented-out block at the
-    bottom of the file (unmaintained, has known syntax bugs).
+    papers. `w_e`/`A_e`/sigma reuse `Geometry.Afr_Ae_ratio` (taken as
+    Afr/Ac). The old VDI code was deleted (git history only).
   - Wang is used slightly outside its tested range at the current
     geometry: P_l = 30 mm (range 12.4-27.5 mm); `check_wang_range` warns.
-    At FIN_SPACING = 1.5 mm (fin pitch 1.62 mm, in range): bundle ΔP
-    ~104 Pa, +50 Pa pad = ~154 Pa total, fan ~225 W (forced draft).
+    At 1.5 mm fin spacing (`FIN_PITCH_MM` = 1.62, in range): bundle ΔP
+    ~104 Pa (+50 Pa pad when the air passes it, see `PAD_IN_DRY_AIR_PATH`);
+    fan ~152 W dry with bypass inlet, ~227 W through the pad (forced draft).
   - Post-processing basis (2026-09): air ΔP/fan power use the **Cell**
-    result's T_air_out (same reference as the precooling decider).
-    Re_Dc/f at the mean air temperature (G_c fixed by continuity),
-    Kays & London density terms with rho_in/rho_out. Effect vs. the old
+    result's theta_a_o (same reference as the precooling decider).
+    Re_Dc/f at the mean air temperature (G_e fixed by continuity),
+    Kays & London density terms with rho_a_i/rho_a_o. Effect vs. the old
     inlet-only evaluation: ~+2.4% bundle ΔP.
-- **`dry_cooler_physics.py`** — `Geometry.fin_density`: the original
-  hardcoded "9 fins/inch" value was replaced with `1/(a+s)` (derived from
-  fin spacing/thickness) after finding it numerically inconsistent with
-  those two fields. Confirm which one (the original constant, or the
-  derived formula) actually matches the physical hardware.
-  **2026-09**: `FIN_SPACING` changed from 0.00023 to 0.0015 m (the old
+- **`dry_cooler_physics.py`** — fin density `Geometry.n_R` = 1/F_p: the
+  original hardcoded "9 fins/inch" value was replaced with the value
+  derived from the fin pitch after finding it numerically inconsistent
+  with spacing/thickness. Confirm which one actually matches the physical
+  hardware -- Kröger (Vol. 2, Sec. 8.1) gives 300-450 fins/m as typical;
+  the current 617 fins/m is above that.
+  **2026-09**: the fin spacing (then input `FIN_SPACING`; since 2026-10 the
+  input is `FIN_PITCH_MM` = spacing + thickness, in mm) changed from 0.00023 to 0.0015 m (the old
   value gave a 0.35 mm pitch, ~72 FPI, and ~1440 Pa air ΔP). The new
   value gives ~15.7 FPI, still not the original 9 FPI (~0.0027 m) --
   confirm against the hardware.
 - **`solvers.py`**:
-  - The cell method's two-stage relaxation (`omega_warm` + raw-residual
-    convergence check in `_relax_cell_grid`). Empirically fast and stable
-    at the settings currently used throughout the app, but a documented
-    sensitivity issue exists: the same physical problem converged in ~8
-    iterations at one `n_segments`/`omega` combination and ran for ~1000
-    at another. The benchmark (2026-10) shows it again: 86 / 70 / 8 / 8
-    outer iterations at 5 / 10 / 20 / 50 segments, so Cell is *slower* at
-    5-10 segments than at 20. **Cause found (2026-10)**: stage 1 always
-    takes 5 iterations; the difference is all in stage 2 (omega = 0.2).
-    Worse, at omega = 0.2 Cell stops *before* converging: default settings
-    give Q = 12.715 kW, the true fixed point (tight tolerance, any omega)
-    is 12.693 kW (+0.17 % error, ~0.02 K at the coolant outlet). The
-    per-cell max raw change < 1e-3 K criterion doesn't bound the error
-    accumulated along the coolant path when steps are damped. With
-    omega = 1 Cell converges correctly in 9 iterations at every resolution
-    (time then linear in n_segments). **Fixed**: Cell now uses its own
-    `CELL_OMEGA = 1.0` (LMTD/NTU keep `CENTRAL_OMEGA`). Benchmark after
-    the fix: 9 iterations at every resolution 2-100, wall time linear in
-    n_segments (85 ms at 2, ~0.7 s at 20, 2.5 s at 100). With omega = 1 the
-    two-stage relaxation is effectively one stage (both stages at 1.0). Not a correctness bug, but a robustness gap worth
-    understanding before relying on it outside today's settings.
+  - Cell relaxation (**resolved 2026-10**): with the old shared omega = 0.2
+    the iteration count depended erratically on n_segments (86 / 70 / 8 / 8
+    at 5 / 10 / 20 / 50) and Cell stopped *before* converging (Q 12.715
+    instead of the tight-tolerance fixed point 12.693 kW, +0.17 %): the
+    per-cell max-raw-change < 1e-3 K criterion doesn't bound the error
+    accumulated along the coolant path when steps are damped. Cell now has
+    its own `CELL_OMEGA = 1.0`: 9 iterations at every resolution 2-100,
+    wall time linear in n_segments. The former two-stage relaxation was
+    collapsed into one stage (`CELL_THRESHOLD`/`CELL_MAX_ITER`/
+    `CELL_MIN_ITER`) -- results bit-identical. Remaining caveat: the
+    stopping criterion is per-cell; at omega < 1 it would stop early again.
   - `solve_it_LMTD`/`solve_it_NTU`'s dynamic omega switch (`omega_warm` ->
     requested `omega`, triggered by step-size growth or a double sign
     flip) -- as of the Aug 2026 structural refactor this logic lives in the
@@ -86,7 +78,8 @@ unconfirmed until checked off.
     point regardless of the omega schedule, but the trigger thresholds
     (grow-by-any-amount, exactly 2 sign flips) are heuristic.
 - **`economics.py`** — pump/fan power via `ṁ·ΔP/(η·ρ)` with fixed
-  efficiencies (pump 0.9, fan 0.7, Towler2022). `calc_fan_power`'s
+  efficiencies (`eta_pump` 0.9, Towler Sec. 20.7; `eta_fan` 0.7, Towler
+  Sec. 19.16). `calc_fan_power`'s
   `fan_position` ('forced' = inlet density, default; 'induced' = outlet
   density, ~+3%) -- actual fan arrangement not yet decided; nothing
   passes it yet.
@@ -107,7 +100,7 @@ unconfirmed until checked off.
   - Implementation assumptions (not from the paper): air is passed
     row-to-row at the same tube/axial position with no neighbour
     averaging (reproduces the closed forms); all tube circuits are
-    identical, so one circuit is solved and broadcast to n_tubes.
+    identical, so one circuit is solved and broadcast to N_t.
   - **Circle back if results look off**: the paper assumes constant U and
     cp. k/cp are held constant within each field solve and updated
     between field solves at the mean temperatures by `_relax_lmtd_ntu`
@@ -115,9 +108,8 @@ unconfirmed until checked off.
   - Elements (`NTU_N_ELEMENTS`, default 20) are independent of Cell's
     `CELL_N_SEGMENTS`. Eq. (1) needs C_c^e << C_h^e (warns above 0.1);
     project result changes <0.01% between 5 and 50 elements.
-  - First result (ambient): NTU Q = 12.75 kW, LMTD 12.81 kW, Cell 11.32
-    kW (old P-series NTU: 12.55 kW). NTU is now close to LMTD (6 passes
-    is near pure counterflow).
+  - NTU lands close to LMTD (6 passes is near pure counterflow); current
+    ambient results: LMTD 12.55, NTU 12.50, Cell 12.44 kW.
 - **`solvers.py` -- Cell vs. NTU gap** (2026-10): Cell evaluated both
   fluids' properties at the average of coolant and air inlet temperature
   (coolant ~4-5 K too cold, k too low). **Fixed**: each fluid now at its
@@ -128,9 +120,10 @@ unconfirmed until checked off.
   per-cell R ~ 19 gave P ~17% too low (0.0100 vs. an exact fine-grid
   0.0120). Removed; Cell now uses the same Cabezas-Gomez element relation
   as NTU (Eqs. 1/4, P1 = 2B/(2+B)), so both cite one source. Holman is no
-  longer used anywhere. Result (ambient, after the CELL_OMEGA fix): Cell
-  Q = 12.69 kW (NTU 12.75 = +0.5 %, LMTD 12.81 = +0.9 %); precooled: Cell
-  17.85 kW (NTU 18.05 = +1.1 %, LMTD 18.12 = +1.6 %).
+  longer used anywhere. Current results (ambient, after all 2026-10 fixes
+  incl. D6 conductivities): Cell Q = 12.44 kW (NTU 12.50 = +0.45 %, LMTD
+  12.55 = +0.9 %); precooled: Cell 17.51 kW (NTU 17.70 = +1.05 %, LMTD
+  17.76 = +1.4 %).
   Remaining Cell-vs-NTU differences are Cell's own modelling choices --
   local k and staggered neighbour averaging of air -- both small here.
 - **`solvers.py` -- LMTD**: deliberately kept as the simplest method,
@@ -148,22 +141,70 @@ unconfirmed until checked off.
   LMTD's is NOT: `calc_lmtd_profile` reconstructs a closed-form
   exponential T(x) profile purely from LMTD's converged scalars --
   `solve_it_LMTD` never computes this internally. Treat the LMTD curve as
-  an interpretation of what LMTD *implies*. The `dQ/dL = k × local ΔT ×
-  (area per unit length)` formula used for LMTD and Cell hasn't been
-  checked against an independent reference (NTU's dQ/dL is the element
-  heat duty divided by element length).
-- **`pressure_drop.py`** (continued) — `calc_delta_p_coolant`'s
-  viscosity correction uses `mu_w = mu` (no correction) since no
-  wall-temperature model exists yet, and uses a fixed 2.5 velocity-head
-  allowance per pass for bends (Towler Eq. 19.20).
+  an interpretation of what LMTD *implies*. The local `dQ/dL = k × local
+  ΔT × (area per unit length)` used for LMTD and Cell follows Baehr,
+  Thermodynamik (2016), Sec. 3.1 (dQ = k dA ΔT); NTU's dQ/dL is the
+  element heat duty divided by element length.
+- **`pressure_drop.py`** (continued) — `calc_delta_p_coolant`: **fixed
+  2026-10** -- friction used the total tube length (all passes) per pass,
+  i.e. counted N_r times too often (10.7 instead of 2.5 kPa, pump 3.35
+  instead of 0.79 W); now L_p = one pass, as in Towler 19.8 / thesis
+  Eq. 2.13. Bend/contraction/expansion allowance 1.5*(2N_p-1)/N_p velocity
+  heads per pass (Towler 19.8). Viscosity correction still uses
+  `mu_w = mu` (no wall-temperature model).
   `calc_delta_p_coolant` evaluates coolant properties at the inlet
   temperature only (the air side now uses in/out/mean states).
+
+## Decisions recorded 2026-10 (from the thesis chapter 2 review)
+
+- Solid conductivities: Cu 380, Al 160 W/(m·K), VDI-Wärmeatlas (2019) D6
+  (was uncited pure-metal 401/237; k dropped ~5 %, Q ~2 %). Carbon steel 50
+  not yet checked against D6.
+- No fin collar is modelled (`h_collar = 0`, D_c = d) -- deliberate.
+- Water usage uses the dry-air mass flow, m_dot_a/(1+Y) (thesis Eq. 2.28).
+- Cooling limit: c_W from CoolProp (liquid water at theta_K) instead of the
+  uncited 4186; the formula's source is VDI M8 §2.2 Gl. (15) (thesis
+  updated from N4 to M8).
+- Design constraints from the supervisor ("Konrad" in parameters.py:
+  37 °C inlet, 0.28 kg/s, 25 °C target) are the reference values. The
+  thesis Sec. 1.2 still says 2 kg/s -- to be corrected there.
+- Air averaging between neighbouring tubes in Cell is a modelling
+  assumption from the staggered geometry, not a correlation.
+- `DEFAULT_PHI_AIR_FALLBACK = 0.30` is an assumption.
+- Thesis Eq. 2.57 (fin efficiency) is cited/written incorrectly in the
+  thesis; the code (VDI M1 Eqs. 7, 8, 12, 14 with the plate-fin factor
+  phi) is the reference.
+
+## Naming conventions (renamed 2026-10, aligned with the thesis notation)
+
+- Temperatures in °C: `theta_<medium>_<state>` (`theta_c_i`, `theta_a_o`,
+  `theta_K`, `theta_a_pc`); Kelvin: `T_...` (only `T_m`, `T_i` in
+  `calc_w_e_T`, `T_kelvin` for CoolProp). Displayed output (figures,
+  terminal) still writes T; if a theta is ever shown, use `\vartheta`.
+- Indices: c coolant, a air, i in, o out, m mean, pc precooled, K cooling
+  limit, da dry air, ev evaporation, f fin, p pipe, fr front/face,
+  e narrowest cross-section. Humidity ratio: `Y` (ops.Y, Y_i, Y_pc, Y_K).
+- Geometry: `d` (tube outer diameter), `d_i`, `D_c` (Wang collar
+  diameter, = d), `delta_f`, `F_p` (fin pitch, input), `t_s` (clear fin
+  spacing, derived), `N_r`/`N_t` (rows = passes / tubes per row), `L_p`
+  (one pass), `l` (all passes), `A_f`/`A_p`/`A_p0` (fin / exposed pipe /
+  bare pipe area per tube and row), `A_tot`, `A_fr`, `A_e`,
+  `Afr_Ae_ratio`, `A_cs_c`, `lambda_f`/`lambda_p`.
+- Flows/powers: `w_c`, `w_fr`, `m_dot_c`, `m_dot_a`, `V_dot_c`,
+  `V_dot_a`, `p_c`/`p_a` (pressures), `Q_dot`, `C_dot_c`/`C_dot_a`
+  (capacity rates), `W_pump`/`W_fan`, `m_dot_ev`, `Delta_P_*`.
+- Deliberately NOT renamed: `alpha_i`/`alpha_R`/`alpha_S`, all `Re_*`/
+  `Nu_*`, `mu`, and the Cabezas-Gomez paper notation inside the NTU
+  element functions (T_h/T_c = hot/cold, i.e. coolant/air).
+- Fan and pump are spelled out to keep f = fin and p = pipe unambiguous:
+  `eta_fan`/`W_fan`, `eta_pump`/`W_pump` (thesis Eqs. 2.6-2.8 write
+  eta_f/W_f and eta_p/W_p -- to be aligned there).
 
 ## Run modes
 
 Independent toggles in `parameters.py`, each overridable per run with a
 flag (`python main.py --[no-]insight --[no-]plots --[no-]convergence
---[no-]benchmark --[no-]resolution`):
+--[no-]benchmark --[no-]resolution --[no-]cell-2d`):
 - `INSIGHT_MODE`: per-iteration progress + full result boxes in the
   terminal (logging at DEBUG). Without it only the per-scenario summary
   (INFO: Q, outlets, pinch, deviation from Cell, iterations, wall time).
@@ -178,8 +219,33 @@ flag (`python main.py --[no-]insight --[no-]plots --[no-]convergence
   each solver's time split. ~20 s (Cell without cache alone ~12 s).
 - `RESOLUTION_MODE`: resolution sweep over `BENCHMARK_RESOLUTIONS` (normal
   runs use `CELL_N_SEGMENTS` / `NTU_N_ELEMENTS`) + its figure. ~15 s.
-Pinch point = T_coolant_out - T_air_in (cold end), shown per solver with
+- `CELL_2D` (`--[no-]cell-2d`): Cell solves one representative tube
+  instead of all N_t (output broadcast to all tubes). With uniform inlet
+  air 2D and 3D are identical to machine precision (all tubes behave the
+  same, so the neighbour averaging of air has no effect); 2D is ~17x
+  faster with a warm cache, ~2.5x on a cold single run (same CoolProp
+  calls). 3D only matters for non-uniform inlet air / per-tube conditions.
+  Passed to the solvers via `SolverSettings.cell_2d`.
+Pinch point = theta_c_o - theta_a_i (cold end), shown per solver with
 LMTD/NTU deviations from Cell.
+
+## Inputs in mm and the GUI
+
+- Geometry lengths are entered in **mm** in `parameters.py` (`*_MM`, e.g.
+  `D_TUBE_OUTER_MM`, `FIN_PITCH_MM`, `HEIGHT_MM`) and converted to SI
+  metres on read: `from_parameters` accepts `(CONSTANT_NAME, MM)` and
+  divides by 1000. The model itself only ever sees metres.
+- `gui.py` (Streamlit, `venv/bin/streamlit run gui.py`) is the interactive
+  alternative to `main.py`. It builds its form from `parameters.py`
+  (values = defaults, inline comments = help, `# --- Group: ... ---` =
+  groups), sets edited values on the `src.parameters` module for the
+  session only (never writes the file), runs `run_scenarios`, and shows
+  tables, log output and all figures. One run at a time across browser
+  tabs (shared module state). Restart the Streamlit server after editing
+  anything under `src/` -- it only reloads `gui.py` itself.
+- The benchmark's temporary patches (uncached lookups, counters) always
+  restore the originals captured at import, so an interrupted or
+  overlapping run can't leave the property cache broken.
 
 ## Optional TODOs
 
@@ -188,16 +254,10 @@ LMTD/NTU deviations from Cell.
   `pressure_drop.py`) also gives a j-factor correlation for plain plate
   fins. Comparing its air-side alpha with VDI M1 Gl. (16)/(18) is the best
   available independent check of k without measured data -- especially
-  since M1 is used outside its range here (A/A_Go = 37.4 vs. 5-30, see
+  since M1 is used outside its range here (A/A_p0 = 37.4 vs. 5-30, see
   below). Deferred for thesis scope.
 
-- **Cell: 3D vs. 2D.** Cell solves all `n_tubes` tubes separately, although
-  with uniform inlet air nearly all behave identically (NTU solves one
-  circuit). That makes Cell up to ~n_tubes x more expensive than needed --
-  note this in any performance comparison. Collapsing Cell to 2D (one
-  representative tube) would remove that cost but also the ability to
-  model non-uniform inlet air or different conditions per tube (edge
-  tubes, wall effects). Undecided whether that capability is needed.
+- **Cell: 3D vs. 2D** -- done as the `CELL_2D` toggle (see Run modes).
 - **Solver toggles**: run only a chosen subset of LMTD/NTU/Cell (e.g. only
   NTU for fast annual runs).
 - **Optimization mode**: compare/optimize geometries (pitches, fin
@@ -238,7 +298,7 @@ easy to find in one place too.
 - `SolverResult.local_diagnostics` (per-cell `Re_air`/`Nu_air`/
   `Re_coolant`/`Nu_coolant` grids from Cell's diagnostic pass) is captured
   but not yet visualized anywhere.
-- `Geometry.Ao_Ae_ratio` (`dry_cooler_physics.py`) -- **source resolved
+- `Geometry.Afr_Ae_ratio` (`dry_cooler_physics.py`) -- **source resolved
   2026-10**: VDI M1, p. 1689, worked example ("Verengter
   Stroemungsquerschnitt"), circular-fin formula adapted to continuous plate
   fins (D = t_q). The same example confirms that M1's Re_d uses the
@@ -246,7 +306,7 @@ easy to find in one place too.
   implemented. Still open: only the transverse gap is checked (diagonal
   gap of staggered banks ignored; fine at current geometry).
 - `calc_Nu_air` (VDI M1 Gl. 16/18) is used outside its stated range:
-  A/A_Go = 37.4 vs. 5-30 (Re_d = 1812 is inside 1e3-1e5). The correlation
+  A/A_p0 = 37.4 vs. 5-30 (Re_d = 1812 is inside 1e3-1e5). The correlation
   was fitted for circular-finned tubes; applying it to continuous plate
   fins is a modelling choice. Wang's j-factor correlation (same paper as
   the friction factor) would be the independent check -- deferred.

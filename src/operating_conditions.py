@@ -14,31 +14,31 @@ from src.param_loader import from_parameters
 
 # Used only when BOTH phi and X come back None -- can't be a field
 # default (see get_operating_conditions() call site for why).
-DEFAULT_PHI_AIR_FALLBACK = 0.30  # TEMP: placeholder inlet RH until a real site/design value is wired in
+DEFAULT_PHI_AIR_FALLBACK = 0.30  # Assumption: inlet relative humidity if neither PHI_AIR nor Y_AIR is given
 
 
 @dataclass
 class OperatingConditions:
     # --- Raw input -------------------------------------------------------
-    T_coolant_in: float            # hot coolant entering [°C]
-    T_air_in: float                # cold air entering [°C]
+    theta_c_i: float            # hot coolant entering [°C]
+    theta_a_i: float                # cold air entering [°C]
 
     # coolant side: exactly one nonzero
-    u_i: float                      # velocity inside tubes [m/s]
-    m_dot_1: float                  # mass flow rate [kg/s]
-    V_coolant: float                # volumetric flow rate [m3/s]
+    w_c: float                      # velocity inside tubes [m/s]
+    m_dot_c: float                  # mass flow rate [kg/s]
+    V_dot_c: float                # volumetric flow rate [m3/s]
 
     # air side: exactly one nonzero
-    w_f: float                      # air approach velocity [m/s]
-    m_dot_2: float                  # air mass flow rate [kg/s]
-    V_o: float                      # air volumetric flow rate [m3/s]
+    w_fr: float                      # air approach velocity [m/s]
+    m_dot_a: float                  # air mass flow rate [kg/s]
+    V_dot_a: float                      # air volumetric flow rate [m3/s]
 
     # --- Fallbacks/defaults ------------------------------------------------
     coolant_type: str = 'Water'
-    P_coolant: float = 101325       # [Pa]
-    P_air: float = 101325           # [Pa]
-    phi: float = None               # inlet relative humidity [0-1] -- give at most one of phi/X
-    X: float = None                 # inlet humidity ratio [kg water/kg dry air]
+    p_c: float = 101325       # [Pa]
+    p_a: float = 101325           # [Pa]
+    phi: float = None               # inlet relative humidity [0-1] -- give at most one of phi/Y
+    Y: float = None                 # inlet humidity ratio [kg water/kg dry air]
 
     # --- Construction-only: reuse an already-built Geometry -----------------
     # Not stored as a field. Pass the SAME Geometry object the caller already
@@ -48,55 +48,55 @@ class OperatingConditions:
 
     def __post_init__(self, geo=None):
         # --- Resolve inlet humidity into the canonical X ---------------
-        if self.phi is not None and self.X is not None:
-            raise ValueError("Give at most one of phi, X -- not both.")
-        if self.X is None:
+        if self.phi is not None and self.Y is not None:
+            raise ValueError("Give at most one of PHI_AIR / Y_AIR (phi, Y) -- not both.")
+        if self.Y is None:
             phi = self.phi if self.phi is not None else DEFAULT_PHI_AIR_FALLBACK
-            self.X = relative_to_absolute_humidity(self.T_air_in, self.P_air, phi)
+            self.Y = relative_to_absolute_humidity(self.theta_a_i, self.p_a, phi)
             self.phi = phi
         else:
-            self.phi = absolute_to_relative_humidity(self.T_air_in, self.P_air, self.X)
+            self.phi = absolute_to_relative_humidity(self.theta_a_i, self.p_a, self.Y)
 
-        # --- Validate: exactly one of u_i/m_dot_1/V and w_f/m_dot_2/V given per fluid -------------
-        coolant_inputs = (self.u_i, self.m_dot_1, self.V_coolant)
-        air_inputs = (self.w_f, self.m_dot_2, self.V_o)
+        # --- Validate: exactly one of w_c/m_dot_c/V and w_fr/m_dot_a/V given per fluid -------------
+        coolant_inputs = (self.w_c, self.m_dot_c, self.V_dot_c)
+        air_inputs = (self.w_fr, self.m_dot_a, self.V_dot_a)
 
         if sum(1 for x in coolant_inputs if x != 0) != 1:
-            raise ValueError("Exactly one of u_i, m_dot_1, V_coolant must be nonzero.")
+            raise ValueError("Exactly one of W_COOLANT / M_COOLANT / V_COOLANT (w_c, m_dot_c, V_dot_c) must be nonzero.")
         if sum(1 for x in air_inputs if x != 0) != 1:
-            raise ValueError("Exactly one of w_f, m_dot_2, V_o must be nonzero.")
+            raise ValueError("Exactly one of W_O / M_O / V_O (w_fr, m_dot_a, V_dot_a) must be nonzero.")
 
         # --- Pull the relevant inflow areas from the geometry ------------
         if geo is None:
             geo = get_geometry()
-        A_coolant = geo.A_flow_coolant
-        A_air = geo.inflow_cross_section
+        A_coolant = geo.A_cs_c
+        A_air = geo.A_fr
 
         # --- Pull the relevant inlet densities from fluid_properties -----
-        rho_coolant_in = get_fluid_properties(self, self.T_coolant_in, self.P_coolant).rho
-        rho_air_in = get_air_properties(self, self.T_air_in, self.P_air).rho
+        rho_coolant_in = get_fluid_properties(self, self.theta_c_i, self.p_c).rho
+        rho_air_in = get_air_properties(self, self.theta_a_i, self.p_a).rho
 
         # --- Coolant side: fill in whichever two were not given ----------
-        if self.u_i != 0:
-            self.V_coolant = self.u_i * A_coolant
-            self.m_dot_1 = rho_coolant_in * self.V_coolant
-        elif self.m_dot_1 != 0:
-            self.V_coolant = self.m_dot_1 / rho_coolant_in
-            self.u_i = self.V_coolant / A_coolant
+        if self.w_c != 0:
+            self.V_dot_c = self.w_c * A_coolant
+            self.m_dot_c = rho_coolant_in * self.V_dot_c
+        elif self.m_dot_c != 0:
+            self.V_dot_c = self.m_dot_c / rho_coolant_in
+            self.w_c = self.V_dot_c / A_coolant
         else:
-            self.m_dot_1 = rho_coolant_in * self.V_coolant
-            self.u_i = self.V_coolant / A_coolant
+            self.m_dot_c = rho_coolant_in * self.V_dot_c
+            self.w_c = self.V_dot_c / A_coolant
 
         # --- Air side: fill in whichever two were not given ---------------
-        if self.w_f != 0:
-            self.V_o = self.w_f * A_air
-            self.m_dot_2 = rho_air_in * self.V_o
-        elif self.m_dot_2 != 0:
-            self.V_o = self.m_dot_2 / rho_air_in
-            self.w_f = self.V_o / A_air
+        if self.w_fr != 0:
+            self.V_dot_a = self.w_fr * A_air
+            self.m_dot_a = rho_air_in * self.V_dot_a
+        elif self.m_dot_a != 0:
+            self.V_dot_a = self.m_dot_a / rho_air_in
+            self.w_fr = self.V_dot_a / A_air
         else:
-            self.m_dot_2 = rho_air_in * self.V_o
-            self.w_f = self.V_o / A_air
+            self.m_dot_a = rho_air_in * self.V_dot_a
+            self.w_fr = self.V_dot_a / A_air
 
 
 def get_operating_conditions(geo=None) -> OperatingConditions:
@@ -104,17 +104,17 @@ def get_operating_conditions(geo=None) -> OperatingConditions:
     Pass geo to resolve flow areas against an already-built Geometry
     instead of constructing a second, independent one internally."""
     return from_parameters(OperatingConditions, {
-        'T_coolant_in': 'T_COOLANT_IN',
-        'T_air_in': 'T_AIR_IN',
-        'u_i': 'W_COOLANT',
-        'm_dot_1': 'M_COOLANT',
-        'V_coolant': 'V_COOLANT',
-        'w_f': 'W_O',
-        'm_dot_2': 'M_O',
-        'V_o': 'V_O',
+        'theta_c_i': 'T_COOLANT_IN',
+        'theta_a_i': 'T_AIR_IN',
+        'w_c': 'W_COOLANT',
+        'm_dot_c': 'M_COOLANT',
+        'V_dot_c': 'V_COOLANT',
+        'w_fr': 'W_O',
+        'm_dot_a': 'M_O',
+        'V_dot_a': 'V_O',
         'coolant_type': 'COOLANT_TYPE',
-        'P_coolant': 'P_COOLANT',
-        'P_air': 'P_AIR',
+        'p_c': 'P_COOLANT',
+        'p_a': 'P_AIR',
         'phi': 'PHI_AIR',
-        'X': 'X_AIR',
+        'Y': 'Y_AIR',
     }, geo=geo)

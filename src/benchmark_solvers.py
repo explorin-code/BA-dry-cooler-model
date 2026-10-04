@@ -22,9 +22,9 @@ No solver code is changed: counting/timing wrappers are patched into the
 solvers module and CoolProp only for the duration of a measurement. Their
 own overhead (~2-3 % of Cell's time) is included in the totals.
 
-Note: Cell solves all n_tubes tubes separately although with uniform inlet
+Note: Cell solves all N_t tubes separately although with uniform inlet
 air they behave nearly identically (NTU solves one circuit) -- up to
-~n_tubes x more work than necessary. Kept as is; see CLAUDE.md.
+~N_t x more work than necessary. Kept as is; see CLAUDE.md.
 """
 
 from contextlib import contextmanager, redirect_stdout
@@ -72,9 +72,24 @@ def _quiet():
         logging.disable(logging.NOTSET)
 
 
+# Originals, captured once at import: every patch below restores to these,
+# never to "whatever is installed now" -- so an interrupted or overlapping
+# run (e.g. two GUI sessions) can't leave a patched function behind.
+_CACHED_LOOKUPS = {'_get_fluid_properties_cached': fluid_properties._get_fluid_properties_cached,
+                   '_get_air_properties_cached': fluid_properties._get_air_properties_cached}
+_COUNTED = [(solvers, 'calc_overall_k'), (solvers, 'get_fluid_properties'),
+            (solvers, 'get_air_properties'), (CP, 'PropsSI'), (CP, 'HAPropsSI')]
+_COUNTED_ORIGINALS = {(module, name): getattr(module, name) for module, name in _COUNTED}
+
+
+def _restore_property_cache():
+    for name, cached in _CACHED_LOOKUPS.items():
+        setattr(fluid_properties, name, cached)
+
+
 def _clear_property_cache():
-    fluid_properties._get_fluid_properties_cached.cache_clear()
-    fluid_properties._get_air_properties_cached.cache_clear()
+    for cached in _CACHED_LOOKUPS.values():
+        cached.cache_clear()
 
 
 @contextmanager
@@ -82,16 +97,14 @@ def _cache_mode(mode: str, fn):
     """Puts the property cache into `mode` before a measured run of fn():
     'no cache' bypasses the lru_cache, 'cold cache' empties it, 'warm cache'
     fills it with one unmeasured run of fn()."""
+    _restore_property_cache()
     if mode == 'no cache':
-        cached_c = fluid_properties._get_fluid_properties_cached
-        cached_a = fluid_properties._get_air_properties_cached
-        fluid_properties._get_fluid_properties_cached = cached_c.__wrapped__
-        fluid_properties._get_air_properties_cached = cached_a.__wrapped__
+        for name, cached in _CACHED_LOOKUPS.items():
+            setattr(fluid_properties, name, cached.__wrapped__)
         try:
             yield
         finally:
-            fluid_properties._get_fluid_properties_cached = cached_c
-            fluid_properties._get_air_properties_cached = cached_a
+            _restore_property_cache()
     else:
         _clear_property_cache()
         if mode == 'warm cache':
@@ -119,17 +132,14 @@ class _Counter:
 def _counting():
     """Temporarily wraps what the solvers call by name (k, property lookups)
     and CoolProp's own entry points, so time and calls can be attributed."""
-    targets = [(solvers, 'calc_overall_k'), (solvers, 'get_fluid_properties'),
-               (solvers, 'get_air_properties'), (CP, 'PropsSI'), (CP, 'HAPropsSI')]
-    originals = [(module, name, getattr(module, name)) for module, name in targets]
     counters = {}
-    for module, name, fn in originals:
+    for (module, name), fn in _COUNTED_ORIGINALS.items():
         counters[name] = _Counter(fn)
         setattr(module, name, counters[name])
     try:
         yield counters
     finally:
-        for module, name, fn in originals:
+        for (module, name), fn in _COUNTED_ORIGINALS.items():
             setattr(module, name, fn)
 
 
@@ -150,11 +160,11 @@ def _measured_run(fn):
             'k evaluation': t_k,
             'rest of solver': max(total - t_lookups - t_k, 0.0),
         },
-        'iterations': len(output[4]),
+        'iterations': len(output.history_hot),
         'k evaluations': c['calc_overall_k'].calls,
         'property lookups': c['get_fluid_properties'].calls + c['get_air_properties'].calls,
         'CoolProp calls': c['PropsSI'].calls + c['HAPropsSI'].calls,
-        'Q [kW]': output[1] / 1000,
+        'Q [kW]': output.Q_dot / 1000,
     }
 
 
@@ -204,7 +214,7 @@ def run_cache_benchmark(ops, geo, settings, modes):
 def resolution_labels(settings) -> dict:
     """Resolution each solver ran at in the caching benchmark (LMTD has none)."""
     return {'LMTD': "", 'NTU': f"{settings.ntu_n_elements} elements",
-            'Cell': f"{settings.cell_n_segments} segments"}
+            'Cell': f"{settings.cell_n_segments} segments" + (", 2D" if settings.cell_2d else "")}
 
 
 def draw_cache_panel(ax, name: str, cache_results, show_legend: bool = False, resolution: str = ""):
@@ -296,11 +306,11 @@ def run_resolution_benchmark(ops, geo, settings, modes):
                     t_start = time.perf_counter()
                     output = runs[name]()
                     times.append(time.perf_counter() - t_start)
-                results[name].append((n, statistics.median(times), len(output[4]), output[1] / 1000))
+                results[name].append((n, statistics.median(times), len(output.history_hot), output.Q_dot / 1000))
         _clear_property_cache()
         t_start = time.perf_counter()
         output = _solver_runs(ops, geo, settings)['LMTD']()
-        results['LMTD'] = (time.perf_counter() - t_start, len(output[4]), output[1] / 1000)
+        results['LMTD'] = (time.perf_counter() - t_start, len(output.history_hot), output.Q_dot / 1000)
     _clear_property_cache()
 
     logger.info("[Benchmark: resolution] %s (took %.1f s)", machine_info(), time.perf_counter() - t_benchmark)

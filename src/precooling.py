@@ -17,31 +17,44 @@ def calc_eta_B ():
     Gl. (16): eta_B = 1 - exp(-K_Y*M_dot_W/M_dot_L), and states none
     generalizes across hardware). If real pad test data becomes available,
     Gl. (16)'s form is the simplest one to fit against it."""
-    return 0.8 ## fixed value for now, usually empirical and velocity dependent
+    # Assumption: 0.8, within ASHRAE Handbook 2020, Ch. 41: rigid-media pads
+    # reach 75-95 %, random-media pads about 80 %.
+    return 0.8
 
 def precooling_decider(cell_result):
-    """Precool if the already-solved ambient scenario's Cell T_coolant_out
+    """Precool if the already-solved ambient scenario's Cell theta_c_o
     is above the target. Takes the Cell SolverResult directly -- no
     re-solving, so this can't drift from what was actually reported."""
     target = parameters.T_COOLANT_TARGET_OUT
-    decision = cell_result.T_coolant_out > target
+    decision = cell_result.theta_c_o > target
     comparison = ">" if decision else "<="
     logger.info("[Decider] Cell T_coolant_out = %.2f °C %s target = %.2f °C -> %s",
-                cell_result.T_coolant_out, comparison, target,
+                cell_result.theta_c_o, comparison, target,
                 'precooling engaged' if decision else 'no precooling needed')
     return decision
 
-def calc_X(T_wb_guess, P_air, phi):
-    """return the humidity ratio of the air at the wet bulb temperature and given pressure"""
-    return CP.HAPropsSI('W', 'T', T_wb_guess + 273.15, 'P', P_air, 'R', phi)
+def calc_c_W(theta, P):
+    """Specific heat capacity of LIQUID water [J/kg-K] at theta [°C] -- the
+    c_W of the cooling-limit equation (c_W * theta_K = enthalpy of the
+    evaporating water). Clamped to >= 0.01 °C: CoolProp's water has no ice.
+    Source: CoolProp (Bell et al. 2014), IAPWS-95 water."""
+    return CP.PropsSI('C', 'T', max(theta, 0.01) + 273.15, 'P', P, 'Water')
+
+
+def calc_Y(theta_wb_guess, p_a, phi):
+    """Humidity ratio [kg water/kg dry air] at the given temperature,
+    pressure and relative humidity. Source: CoolProp HAPropsSI
+    (Bell et al. 2014)."""
+    return CP.HAPropsSI('W', 'T', theta_wb_guess + 273.15, 'P', p_a, 'R', phi)
 
 def calc_h(T, P, phi):
-    """return the air enthalpy. given conditions"""
+    """Humid-air enthalpy [J/kg humid air] at the given conditions. Source:
+    CoolProp HAPropsSI (Bell et al. 2014)."""
     return CP.HAPropsSI('Hha', 'T', T + 273.15, 'P', P, 'R', phi)
 
 # Source: VDI Wärmeatlas, Chapter M8, §2.2, Gl. (15), p.1778 -- confirmed
 # 2026-08 against the 12th ed., exact match (residual below is literally
-# (h_LE-h_LK)/(X_E-X_K) - c_water*theta_K = 0, i.e. Gl.(15) root-found via
+# (h_LE-h_LK)/(Y_i-Y_K) - c_W*theta_K = 0, i.e. Gl.(15) root-found via
 # brentq). The formula assumes a Lewis factor of 1 (book's Gl. 14,
 # alpha/(beta_Y*c_p(1+Y)) = 1) -- not separately checked here, inherited
 # from the book's own stated prerequisite for Gl.(15)/(13) to hold.
@@ -50,26 +63,25 @@ def calc_cooling_limit(ops):
     if ops.phi >= 0.999:
         # already (essentially) saturated -- no evaporative cooling potential,
         # and the wet-bulb energy balance is singular right at 100% RH
-        return ops.T_air_in
+        return ops.theta_a_i
 
-    X_E = ops.X
-    c_water = 4186.0 # specific heat of water [J/kg-K] from VDI
-    h_LE = calc_h(ops.T_air_in, ops.P_air, ops.phi)
+    Y_i = ops.Y
+    h_LE = calc_h(ops.theta_a_i, ops.p_a, ops.phi)
 
     def residual(theta_K_guess):
-        h_LK = calc_h(theta_K_guess, ops.P_air, 1.0)
-        X_K = calc_X(theta_K_guess, ops.P_air, 1.0)
+        h_LK = calc_h(theta_K_guess, ops.p_a, 1.0)
+        Y_K = calc_Y(theta_K_guess, ops.p_a, 1.0)
 
-        return (h_LE - h_LK) / (X_E - X_K) - c_water * theta_K_guess
+        return (h_LE - h_LK) / (Y_i - Y_K) - calc_c_W(theta_K_guess, ops.p_a) * theta_K_guess
 
-    T_dewpoint = CP.HAPropsSI('D', 'T', ops.T_air_in + 273.15, 'P', ops.P_air, 'W', X_E) - 273.15
+    theta_dp = CP.HAPropsSI('D', 'T', ops.theta_a_i + 273.15, 'P', ops.p_a, 'W', Y_i) - 273.15
 
     try:
-        return brentq(residual, T_dewpoint + 0.1, ops.T_air_in)
+        return brentq(residual, theta_dp + 0.1, ops.theta_a_i)
     except ValueError:
         # bracket collapsed (near-saturated air) or failed to bracket a root
         # -- fall back to "no cooling potential" rather than crashing
-        return ops.T_air_in
+        return ops.theta_a_i
 
 def calc_precooler(ops, ambient_result):
     """returns (ops, was_precooled). ops unchanged and was_precooled=False
@@ -80,29 +92,29 @@ def calc_precooler(ops, ambient_result):
         eta_B = calc_eta_B()
 
         theta_K = calc_cooling_limit(ops)
-        theta_LE = ops.T_air_in
+        theta_a_i = ops.theta_a_i
 
-        X_E = ops.X
-        X_K = calc_X(theta_K, ops.P_air, 1.0)
+        Y_i = ops.Y
+        Y_K = calc_Y(theta_K, ops.p_a, 1.0)
 
         # Source: VDI Wärmeatlas, Chapter M8, §2.2, Gl. (13), p.1778 --
         # confirmed 2026-08 against the 12th ed. Gl.(13) states
-        # eta_B = (X_A-X_E)/(X_K-X_E) ~= (theta_LE-theta_LA)/(theta_LE-theta_K);
-        # both lines below are that same equation solved for X_A and
-        # theta_LA respectively.
-        theta_LA = theta_LE - eta_B * (theta_LE - theta_K)
-        X_A = X_E + eta_B * (X_K - X_E)
+        # eta_B = (Y_pc-Y_i)/(Y_K-Y_i) ~= (theta_a_i-theta_a_pc)/(theta_a_i-theta_K);
+        # both lines below are that same equation solved for Y_pc and
+        # theta_a_pc respectively.
+        theta_a_pc = theta_a_i - eta_B * (theta_a_i - theta_K)
+        Y_pc = Y_i + eta_B * (Y_K - Y_i)
 
         ops = dataclasses.replace(
             ops,
-            T_air_in=theta_LA,
-            X=X_A,
+            theta_a_i=theta_a_pc,
+            Y=Y_pc,
             phi=None,
-            w_f=ops.w_f,
-            m_dot_2=0.0,
-            V_o=0.0,
-            u_i=0.0,
-            V_coolant=0.0,
+            w_fr=ops.w_fr,
+            m_dot_a=0.0,
+            V_dot_a=0.0,
+            w_c=0.0,
+            V_dot_c=0.0,
         )
         return ops, True
 

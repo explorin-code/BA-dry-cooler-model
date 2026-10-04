@@ -18,8 +18,8 @@ from src.solvers import cell_path_order
 @dataclass
 class ProfileData:
     x_frac: object      # 0 (coolant inlet) to 1 (coolant outlet)
-    T_coolant: object
-    T_air: object
+    theta_c: object
+    theta_a: object
     k: object
     dQdL: object
 
@@ -28,29 +28,30 @@ class ProfileData:
 # profile, derived from the log-mean assumption itself -- not something
 # solve_it_LMTD computes. See CLAUDE.md.
 def calc_lmtd_profile(lmtd_result, ops, geo, n_points: int = 200) -> ProfileData:
-    dT_hot = ops.T_coolant_in - lmtd_result.T_air_out
-    dT_cold = lmtd_result.T_coolant_out - ops.T_air_in
+    Delta_theta_hot = ops.theta_c_i - lmtd_result.theta_a_o
+    Delta_theta_cold = lmtd_result.theta_c_o - ops.theta_a_i
 
-    T_coolant_mean = (ops.T_coolant_in + lmtd_result.T_coolant_out) / 2.0
-    T_air_mean = (ops.T_air_in + lmtd_result.T_air_out) / 2.0
-    coolant_state = get_fluid_properties(ops, T_coolant_mean, ops.P_coolant)
-    air_state = get_air_properties(ops, T_air_mean, ops.P_air)
-    W_coolant = ops.m_dot_1 * coolant_state.cp
-    W_air = ops.m_dot_2 * air_state.cp
+    theta_c_m = (ops.theta_c_i + lmtd_result.theta_c_o) / 2.0
+    theta_a_m = (ops.theta_a_i + lmtd_result.theta_a_o) / 2.0
+    coolant_state = get_fluid_properties(ops, theta_c_m, ops.p_c)
+    air_state = get_air_properties(ops, theta_a_m, ops.p_a)
+    C_dot_c = ops.m_dot_c * coolant_state.cp
+    C_dot_a = ops.m_dot_a * air_state.cp
 
     x_frac = np.linspace(0.0, 1.0, n_points)
-    ratio = dT_cold / dT_hot
-    delta_T = dT_hot * ratio**x_frac
-    Q = dT_hot * (1 - ratio**x_frac) / (1 / W_coolant - 1 / W_air)
+    ratio = Delta_theta_cold / Delta_theta_hot
+    delta_T = Delta_theta_hot * ratio**x_frac
+    Q = Delta_theta_hot * (1 - ratio**x_frac) / (1 / C_dot_c - 1 / C_dot_a)
 
-    T_coolant = ops.T_coolant_in - Q / W_coolant
-    T_air = lmtd_result.T_air_out - Q / W_air
+    theta_c = ops.theta_c_i - Q / C_dot_c
+    theta_a = lmtd_result.theta_a_o - Q / C_dot_a
     k_profile = np.full(n_points, lmtd_result.k)
 
-    A_total = geo.A * geo.n_tubes * geo.n_rows
-    dQdL = lmtd_result.k * delta_T * (A_total / geo.l)
+    # Local dQ = k dA (T_B - T_A): Baehr, Thermodynamik, 16th ed. (2016), Sec. 3.1.
+    A_tot = geo.A * geo.N_t * geo.N_r
+    dQdL = lmtd_result.k * delta_T * (A_tot / geo.l)
 
-    return ProfileData(x_frac=x_frac, T_coolant=T_coolant, T_air=T_air, k=k_profile, dQdL=dQdL)
+    return ProfileData(x_frac=x_frac, theta_c=theta_c, theta_a=theta_a, k=k_profile, dQdL=dQdL)
 
 
 # NTU's profile is a genuine reduction of its own converged element field
@@ -58,17 +59,17 @@ def calc_lmtd_profile(lmtd_result, ops, geo, n_points: int = 200) -> ProfileData
 # (cell_path_order). Same reduction as calc_cell_profile below; for NTU all
 # tubes are identical, so mean/sum over tubes are exact copies/multiples.
 def calc_ntu_profile(ntu_result, geo, n_elements: int) -> ProfileData:
-    path = cell_path_order(geo.n_rows, n_elements)
+    path = cell_path_order(geo.N_r, n_elements)
     n_points = len(path)
 
-    T_coolant = np.array([ntu_result.T_c_grid[r, :, e].mean() for r, e in path])
-    T_air = np.array([ntu_result.T_a_grid[r, :, e].mean() for r, e in path])
+    theta_c = np.array([ntu_result.theta_c_grid[r, :, e].mean() for r, e in path])
+    theta_a = np.array([ntu_result.theta_a_grid[r, :, e].mean() for r, e in path])
     k = np.array([ntu_result.k_grid[r, :, e].mean() for r, e in path])
     dQdL = np.array([ntu_result.dQdL_grid[r, :, e].sum() for r, e in path])   # extensive: sum over tubes
 
     x_frac = np.linspace(0.0, 1.0, n_points)
 
-    return ProfileData(x_frac=x_frac, T_coolant=T_coolant, T_air=T_air, k=k, dQdL=dQdL)
+    return ProfileData(x_frac=x_frac, theta_c=theta_c, theta_a=theta_a, k=k, dQdL=dQdL)
 
 
 # Cell's profile is a genuine reduction, not a reconstruction -- see
@@ -77,17 +78,17 @@ def calc_ntu_profile(ntu_result, geo, n_elements: int) -> ProfileData:
 # _relax_cell_grid's Pass 1 uses to drive its own loop, so this is provably
 # the same path the solver itself walks, not a separate guess at it.
 def calc_cell_profile(cell_result, geo, n_segments: int) -> ProfileData:
-    path = cell_path_order(geo.n_rows, n_segments)
+    path = cell_path_order(geo.N_r, n_segments)
     n_points = len(path)
 
-    T_coolant = np.array([cell_result.T_c_grid[r, :, s].mean() for r, s in path])
-    T_air = np.array([cell_result.T_a_grid[r, :, s].mean() for r, s in path])
+    theta_c = np.array([cell_result.theta_c_grid[r, :, s].mean() for r, s in path])
+    theta_a = np.array([cell_result.theta_a_grid[r, :, s].mean() for r, s in path])
     k = np.array([cell_result.k_grid[r, :, s].mean() for r, s in path])
     # dQdL is extensive (per-tube rates from parallel tubes add, not average) --
     # sum across tubes here, unlike the mean() used for the intensive quantities
-    # above, so this matches LMTD/NTU's dQdL (both already scaled by n_tubes).
+    # above, so this matches LMTD/NTU's dQdL (both already scaled by N_t).
     dQdL = np.array([cell_result.dQdL_grid[r, :, s].sum() for r, s in path])
 
     x_frac = np.linspace(0.0, 1.0, n_points)
 
-    return ProfileData(x_frac=x_frac, T_coolant=T_coolant, T_air=T_air, k=k, dQdL=dQdL)
+    return ProfileData(x_frac=x_frac, theta_c=theta_c, theta_a=theta_a, k=k, dQdL=dQdL)
