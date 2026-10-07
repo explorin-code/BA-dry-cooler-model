@@ -7,14 +7,14 @@ FluidState/Geometry -- no solver/precooling internals.
 """
 
 
-def calc_pump_power(ops, coolant_state, Delta_P: float) -> float:
+def calc_pump_power(ops, coolant_state, Delta_p: float) -> float:
     """Coolant pump power consumption [W]."""
     eta_pump = 0.9  # reciprocating pump efficiency -- Towler, Chemical Engineering Design, 3rd ed., Sec. 20.7
                  # (written with m_dot/rho instead of the volume flow rate -- same quantity)
-    return (ops.m_dot_c * Delta_P) / (eta_pump * coolant_state.rho)  # W
+    return (ops.m_dot_c * Delta_p) / (eta_pump * coolant_state.rho)  # W
     
 
-def calc_fan_power(ops, air_in, air_out, Delta_P: float, fan_position: str = 'forced') -> float:
+def calc_fan_power(ops, air_in, air_out, Delta_p: float, fan_position: str = 'forced') -> float:
     """Fan power consumption [W]. fan_position decides which air state the
     fan actually moves (sets the volume flow m_dot/rho):
       'forced'  -- fan upstream of the bundle, pushes air at the bundle inlet state
@@ -27,15 +27,15 @@ def calc_fan_power(ops, air_in, air_out, Delta_P: float, fan_position: str = 'fo
         rho = air_out.rho
     else:
         raise ValueError(f"fan_position must be 'forced' or 'induced', got {fan_position!r}")
-    return (ops.m_dot_a * Delta_P) / (eta_fan * rho)  # W
+    return (ops.m_dot_a * Delta_p) / (eta_fan * rho)  # W
 
 
-def calc_total_power(W_pump, W_fan):
+def calc_total_power(P_pump, P_fan):
     """Total electrical power consumption [W]. Returns None if either
     component isn't available yet."""
-    if W_pump is None or W_fan is None:
+    if P_pump is None or P_fan is None:
         return None
-    return W_pump + W_fan
+    return P_pump + P_fan
 
 
 def calc_water_usage(ops_ambient, ops_precooled) -> float:

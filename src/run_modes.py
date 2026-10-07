@@ -19,10 +19,13 @@ class RunModes:
     plot_convergence: bool         # convergence + iteration-error figures
     benchmark_mode: bool           # caching benchmark + solver-performance figure
     resolution_mode: bool          # resolution sweep + its figure
+    annual_mode: bool              # annual benchmark (8760 operating points) + its figure
     cell_2d: bool                  # Cell solves one representative tube instead of all
     benchmark_resolutions: list    # Cell segments / NTU elements swept by the benchmark
     benchmark_repeats: int         # timed repeats per caching measurement (median reported)
     benchmark_sweep_repeats: int   # timed repeats per resolution point
+    annual_time_budget: float      # annual benchmark: per-solver budget before extrapolating [s]
+    annual_weather_csv: str = None # annual benchmark: weather CSV, None = synthetic year
 
 
 def get_run_modes(**overrides) -> RunModes:
@@ -34,8 +37,11 @@ def get_run_modes(**overrides) -> RunModes:
         'plot_convergence': 'PLOT_CONVERGENCE',
         'benchmark_mode': 'BENCHMARK_MODE',
         'resolution_mode': 'RESOLUTION_MODE',
+        'annual_mode': 'ANNUAL_MODE',
         'cell_2d': 'CELL_2D',
         'benchmark_resolutions': 'BENCHMARK_RESOLUTIONS',
         'benchmark_repeats': 'BENCHMARK_REPEATS',
         'benchmark_sweep_repeats': 'BENCHMARK_SWEEP_REPEATS',
+        'annual_time_budget': 'ANNUAL_TIME_BUDGET_S',
+        'annual_weather_csv': 'ANNUAL_WEATHER_CSV',
     }, **overrides)

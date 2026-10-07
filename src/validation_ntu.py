@@ -3,7 +3,7 @@ validation_ntu.py
 ==================
 Validates the NTU solver's element-field core (solvers.solve_ntu_field)
 against the published results of its source, using exactly the same
-function the solver runs -- in dimensionless form (T_h,in = 1, T_c,in = 0,
+function the solver runs -- in dimensionless form (T_hot,in = 1, T_c,in = 0,
 C_h = 1), constant U and cp, one tube per row (N_t = 1).
 
 Source: Cabezas-Gomez, Navarro & Saiz-Jabardo (2007), "Thermal Performance
@@ -33,7 +33,7 @@ from src.solvers import solve_ntu_field
 # =============================================================================
 # Table 1 notation: Fluid A mixed (= tube fluid = coolant), Fluid B unmixed
 # (= external fluid = air); C*_A = C_A/C_B (may exceed 1), NTU_A = UA/C_A,
-# eps_A = tube-side effectiveness (T_h,i - T_h,o)/(T_h,i - T_c,i).
+# eps_A = tube-side effectiveness (T_hot,i - T_hot,o)/(T_hot,i - T_c,i).
 
 def eps_A_G11(NTU_A: float, C_A: float) -> float:
     """Pure cross-flow, one row. Source: Cabezas-Gomez, Navarro &
@@ -86,18 +86,18 @@ def closed_form_eps(N_r: int, C_star: float, NTU: float, C_min_side: str) -> flo
 
 def numerical_eps_and_P(N_r: int, C_h: float, C_c: float, UA: float, n_elements: int):
     """Runs solvers.solve_ntu_field for one circuit (N_t = 1) and returns
-    (eps, P): eps = q/(C_min (T_h,i - T_c,i)), P = air-side temperature
+    (eps, P): eps = q/(C_min (T_hot,i - T_c,i)), P = air-side temperature
     effectiveness (p. 286, Eq. (7))."""
-    _, _, _, T_h_out, T_c_out, _ = solve_ntu_field(
+    _, _, _, T_hot_out, T_cold_out, _ = solve_ntu_field(
         N_r, n_elements,
         C_h_circuit=C_h,
         C_c_element=C_c / n_elements,                # C_c^e = C_c/(N_e N_t), N_t = 1
         UA_element=UA / (N_r * n_elements),       # (UA)^e = UA/(N_e N_t N_r)
-        theta_c_i=1.0, theta_a_i=0.0,
+        T_c_i=1.0, T_a_i=0.0,
         tol=1e-11, max_iter=100000,
     )
-    q = C_h * (1.0 - T_h_out)
-    return q / min(C_h, C_c), T_c_out
+    q = C_h * (1.0 - T_hot_out)
+    return q / min(C_h, C_c), T_cold_out
 
 
 # =============================================================================

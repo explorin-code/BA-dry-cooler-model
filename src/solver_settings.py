@@ -16,22 +16,21 @@ from src.param_loader import from_parameters
 @dataclass
 class SolverSettings:
     # --- Shared by all three solvers --------------------------------------
-    Delta_theta_hot_init: float          # initial Delta_theta_hot guess [K]
-    Delta_theta_cold_init: float         # initial Delta_theta_cold guess [K]
-    convergence_threshold: float   # convergence threshold on Delta_theta_hot/Delta_theta_cold change [K]
-    central_omega: float           # under-relaxation factor of LMTD/NTU's shared outer loop
+    Delta_T_hot_init: float          # initial Delta_T_hot guess [K]
+    Delta_T_cold_init: float         # initial Delta_T_cold guess [K]
+    central_omega: float           # under-relaxation factor of LMTD's outer loop
+    outer_max_iter: int            # iteration cap of LMTD/NTU's outer loop
+    ntu_omega: float               # NTU's own outer-loop relaxation factor (see parameters.NTU_OMEGA)
     cell_omega: float              # Cell's own relaxation factor (see parameters.CELL_OMEGA)
     cell_n_segments: int           # number of coolant-direction segments per tube pass (Cell only)
     ntu_n_elements: int            # number of elements per tube per row (NTU only)
+    ntu_mode: str                  # 'field' or 'table' (see solvers.solve_it_NTU)
 
-    # --- Cell-only: relaxation (see solvers._relax_cell_grid) ---
-    cell_threshold: float          # stop when no cell changes by more than this [K]
-    cell_max_iter: int
-    cell_min_iter: int
-
-    # --- NTU-only: inner element-field iteration (see solvers.solve_ntu_field) ---
-    ntu_field_threshold: float
+    # --- Convergence (all three solvers; per-solver overrides only as
+    # hardcoded constants in solvers.py, for tests) ---
+    convergence_threshold: float   # both outlet temperatures change < this per iteration [K]
     ntu_field_max_iter: int
+    cell_max_iter: int
 
     # --- Set from the run modes (CELL_2D / --cell-2d), not from parameters directly ---
     cell_2d: bool = False          # Cell: one representative tube instead of all
@@ -40,16 +39,16 @@ class SolverSettings:
 def get_solver_settings() -> SolverSettings:
     """Current solver tuning -- edit parameters.py to change the numbers."""
     return from_parameters(SolverSettings, {
-        'Delta_theta_hot_init': 'DT_HOT_IT_INIT',
-        'Delta_theta_cold_init': 'DT_COLD_IT_INIT',
+        'Delta_T_hot_init': 'DT_HOT_IT_INIT',
+        'Delta_T_cold_init': 'DT_COLD_IT_INIT',
         'convergence_threshold': 'CONVERGENCE_THRESHOLD',
         'central_omega': 'CENTRAL_OMEGA',
+        'outer_max_iter': 'OUTER_MAX_ITER',
+        'ntu_omega': 'NTU_OMEGA',
         'cell_omega': 'CELL_OMEGA',
         'cell_n_segments': 'CELL_N_SEGMENTS',
         'ntu_n_elements': 'NTU_N_ELEMENTS',
-        'cell_threshold': 'CELL_THRESHOLD',
+        'ntu_mode': 'NTU_MODE',
         'cell_max_iter': 'CELL_MAX_ITER',
-        'cell_min_iter': 'CELL_MIN_ITER',
-        'ntu_field_threshold': 'NTU_FIELD_THRESHOLD',
         'ntu_field_max_iter': 'NTU_FIELD_MAX_ITER',
     })

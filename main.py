@@ -6,11 +6,12 @@ and shows the resulting figures together. See scenario_pipeline.py for what
 actually gets solved/plotted.
 
 Run modes default to parameters.py (INSIGHT_MODE, PLOT_RESULTS,
-PLOT_CONVERGENCE, BENCHMARK_MODE, RESOLUTION_MODE, CELL_2D); each can be overridden
+PLOT_CONVERGENCE, BENCHMARK_MODE, RESOLUTION_MODE, ANNUAL_MODE, CELL_2D); each can be overridden
 per run, in any combination:
     python main.py --no-insight --no-plots --no-benchmark   # fast: summary only
     python main.py --convergence                            # + convergence figures
     python main.py --benchmark --resolution                 # + both performance figures
+    python main.py --annual                                 # + annual benchmark (8760 h, minutes)
 """
 
 import argparse
@@ -35,6 +36,8 @@ def parse_args():
                         help="caching benchmark + solver-performance figure")
     parser.add_argument("--resolution", action=argparse.BooleanOptionalAction, default=None,
                         help="resolution sweep + its figure")
+    parser.add_argument("--annual", action=argparse.BooleanOptionalAction, default=None,
+                        help="annual benchmark: all four solvers over 8760 hourly operating points")
     parser.add_argument("--cell-2d", action=argparse.BooleanOptionalAction, default=None,
                         help="Cell solves one representative tube (2D) instead of all tubes (3D)")
     return parser.parse_args()
@@ -53,7 +56,7 @@ def run():
     args = parse_args()
     modes = get_run_modes(insight_mode=args.insight, plot_results=args.plots,
                           plot_convergence=args.convergence, benchmark_mode=args.benchmark,
-                          resolution_mode=args.resolution, cell_2d=args.cell_2d)
+                          resolution_mode=args.resolution, annual_mode=args.annual, cell_2d=args.cell_2d)
     setup_logging(modes.insight_mode)
 
     t_start = time.perf_counter()

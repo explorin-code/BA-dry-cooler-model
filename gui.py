@@ -29,6 +29,7 @@ import streamlit as st
 
 import src.parameters as parameters
 from src.dry_cooler_physics import SOLID_CONDUCTIVITIES
+from src.fluid_properties import COOLANTS
 from src.run_modes import get_run_modes
 from src.scenario_pipeline import run_scenarios
 
@@ -81,6 +82,10 @@ def widget(name, default, help_text):
     if name.endswith("_MATERIAL"):
         options = list(SOLID_CONDUCTIVITIES)
         return st.selectbox(name, options, index=options.index(default), help=help_text, key=key)
+    if name == "COOLANT_TYPE":
+        options = list(COOLANTS) + ([default] if default not in COOLANTS else [])   # keep a custom name
+        return st.selectbox(name, options, index=options.index(default), help=help_text, key=key,
+                            format_func=lambda fluid: COOLANTS.get(fluid, fluid))
     if isinstance(default, int):
         return int(st.number_input(name, value=default, step=1, help=help_text, key=key))
     if isinstance(default, float):
@@ -177,8 +182,8 @@ def summary_table(results):
             r = getattr(sc["result"], name)
             rows.append({
                 "Scenario": sc["label"], "Solver": name.upper() if name != "cell" else "Cell",
-                "Q [kW]": r.Q_dot / 1000, "T_c,o [°C]": r.theta_c_o, "T_a,o [°C]": r.theta_a_o,
-                "ΔT_pinch [K]": r.theta_c_o - sc["ops"].theta_a_i, "k [W/m²K]": r.k,
+                "Q [kW]": r.Q_dot / 1000, "T_c,o [°C]": r.T_c_o, "T_a,o [°C]": r.T_a_o,
+                "ΔT_pinch [K]": r.T_c_o - sc["ops"].T_a_i, "k [W/m²K]": r.k,
                 "Iterations": len(r.history_hot), "Time [ms]": (r.solve_time or 0) * 1e3,
             })
     return pd.DataFrame(rows)
@@ -189,7 +194,7 @@ def economics_table(results):
     for key in ("ambient", "precooled"):
         sc = results.get(key)
         if sc:
-            rows.append({"Scenario": sc["label"], "Pump [W]": sc["W_pump"], "Fan [W]": sc["W_fan"],
+            rows.append({"Scenario": sc["label"], "Pump [W]": sc["P_pump"], "Fan [W]": sc["P_fan"],
                          "Water [g/s]": None if sc["m_dot_ev"] is None else sc["m_dot_ev"] * 1000})
     return pd.DataFrame(rows)
 
