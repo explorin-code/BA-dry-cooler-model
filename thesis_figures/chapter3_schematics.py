@@ -2,7 +2,7 @@
 chapter3_schematics.py
 =======================
 Thesis Chapter 3 figures: schematics of the discretisation, drawn from the
-actual geometry and solvers.py's own path / neighbour logic, coloured by a
+actual geometry and the solvers' own path (src/solvers/field.py) / neighbour logic, coloured by a
 real model run (ambient operating point from parameters.py).
 
   circuit             side view of one tube circuit: rows x segments, the
@@ -11,6 +11,10 @@ real model run (ambient operating point from parameters.py).
                       coolant (tube) and air (background) temperature; its own
                       run at CIRCUIT_ROWS x CIRCUIT_SEGMENTS (6 x 10), text
                       only the four inlet/outlet temperature symbols.
+  marching_order      one iteration of sweep_two_way on one tube circuit (2D,
+                      3 rows x 4 segments, topology only, no run): (a) pass 1
+                      numbered in cell_path_order (coolant, air from n-1),
+                      (b) pass 2 row by row (air, coolant from pass 1).
   precooler_paths     dry operation vs. adiabatic precooling: ambient air
                       enters through the bypass or through the wetted pad
                       (damper picks one, PAD_IN_DRY_AIR_PATH = False); the
@@ -24,6 +28,9 @@ real model run (ambient operating point from parameters.py).
                       coolant directions alternating per row, air from two
                       lower cells merging into each upper cell and splitting
                       again towards the next row (get_staggered_air_inlet).
+  cells_exploded_3rows  the same for the whole depth of a 3-row cooler (its
+                      own run, N_r = 3): air inlet row, inner row, air outlet
+                      row (3 / 2 / 3 tubes), 2 segments along the tube.
 
 Qualitative on purpose: no numbers on the figures; the colours come from the
 run, the colour bar only says cold / hot.
@@ -44,6 +51,7 @@ from matplotlib.cm import ScalarMappable
 from matplotlib.colors import Normalize
 from matplotlib.transforms import Affine2D
 from matplotlib.patches import FancyArrowPatch, Rectangle, Wedge
+from matplotlib.patheffects import Normal, Stroke
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 
 import src.parameters as parameters
@@ -51,7 +59,8 @@ from src.dry_cooler_physics import get_geometry
 from src.operating_conditions import get_operating_conditions
 from src.precooling import calc_precooler
 from src.solver_settings import get_solver_settings
-from src.solvers import get_coolant_inlet, get_staggered_air_inlet, solve_it_cell, solve_it_NTU
+from src.solvers import (cell_path_order, get_coolant_inlet, get_staggered_air_inlet, solve_it_cell,
+                         solve_it_NTU)
 
 COLOR_OUTLINE = "#333333"
 CMAP = "RdYlBu_r"                # one temperature scale for coolant and air
@@ -221,6 +230,15 @@ def _box_edges(ax, x0, x1, y0, y1, z0, z1, **kw):
         ax.plot(*zip(corners(*a), corners(*b)), **kw)
 
 
+def _quiver(ax, *args, lw=3.0, **kw):
+    """3D arrow with a thin dark outline, so pale colours (air around the
+    middle of the scale) stay visible on white / in print."""
+    arrow = ax.quiver(*args, lw=lw, **kw)
+    arrow.set_path_effects([Stroke(linewidth=lw + 1.4, foreground=COLOR_OUTLINE, alpha=kw.get("alpha", 1.0)),
+                            Normal()])                         # faded arrows: outline faded alike
+    return arrow
+
+
 def _tube(ax, x_c, z_c, y0, y1, radius, color, n=40):
     """Cylinder along y."""
     theta = np.linspace(0, 2 * np.pi, n)
@@ -287,13 +305,13 @@ def draw_staggered_cells_3d(ax, result, ops, geo, solver: str = "cell", gap: flo
             # Coolant arrows in front of and behind the tube, in its flow direction
             c_first, c_last = (means[0], means[-1]) if into_page else (means[-1], means[0])
             if into_page:
-                ax.quiver(x_c, -0.6 * L, zc, 0, 0.55 * L, 0, color=color(c_first), lw=3.5, arrow_length_ratio=0.35)
-                ax.quiver(x_c, y_len + 0.05 * L, zc, 0, 0.55 * L, 0, color=color(c_last), lw=3.5,
+                _quiver(ax, x_c, -0.6 * L, zc, 0, 0.55 * L, 0, color=color(c_first), lw=3.5, arrow_length_ratio=0.35)
+                _quiver(ax, x_c, y_len + 0.05 * L, zc, 0, 0.55 * L, 0, color=color(c_last), lw=3.5,
                           arrow_length_ratio=0.35)
             else:
-                ax.quiver(x_c, y_len + 0.6 * L, zc, 0, -0.55 * L, 0, color=color(c_first), lw=3.5,
+                _quiver(ax, x_c, y_len + 0.6 * L, zc, 0, -0.55 * L, 0, color=color(c_first), lw=3.5,
                           arrow_length_ratio=0.35)
-                ax.quiver(x_c, -0.05 * L, zc, 0, -0.55 * L, 0, color=color(c_last), lw=3.5, arrow_length_ratio=0.35)
+                _quiver(ax, x_c, -0.05 * L, zc, 0, -0.55 * L, 0, color=color(c_last), lw=3.5, arrow_length_ratio=0.35)
             ax.text(x_c - s_t / 2 + 0.06 * s_t, 0, z0 + 0.06 * s_l, labels[k], fontsize=10, color="#333333",
                     zorder=20)
 
@@ -310,13 +328,13 @@ def draw_staggered_cells_3d(ax, result, ops, geo, solver: str = "cell", gap: flo
         outs = []
         for k in range(3):
             _, a_in, a_out = temps(r - 1, t + k, s)
-            ax.quiver(k * s_t, y_air, z_low - 0.65 * s_l, 0, 0, 0.6 * s_l, color=color(a_in), lw=lw_air,
+            _quiver(ax, k * s_t, y_air, z_low - 0.65 * s_l, 0, 0, 0.6 * s_l, color=color(a_in), lw=lw_air,
                       arrow_length_ratio=0.3, alpha=alpha)
             outs.append(a_out)
         if G > 0:                                                  # merging arrows need the gap
             for k, (x_from, a_out_low) in enumerate(zip((0.0, s_t, 2 * s_t), outs)):
                 for x_to in ((k - 0.5) * s_t, (k + 0.5) * s_t):
-                    ax.quiver(x_from, y_air, z_from, (x_to - x_from) * 0.92, 0, z_mix - z_from,
+                    _quiver(ax, x_from, y_air, z_from, (x_to - x_from) * 0.92, 0, z_mix - z_from,
                               color=color(a_out_low), lw=lw_air, arrow_length_ratio=0.18, alpha=alpha)
         for k in range(2):
             _, a_in, a_out = temps(r, t + k, s)
@@ -324,7 +342,7 @@ def draw_staggered_cells_3d(ax, result, ops, geo, solver: str = "cell", gap: flo
             ax.scatter([x_c], [y_air], [z_top], s=40, color=color(a_in), edgecolor="#333333", zorder=10,
                        alpha=alpha)
             for dx in (-0.5 * s_t, 0.5 * s_t):
-                ax.quiver(x_c, y_air, z_top + s_l + 0.05 * reach, dx * 0.92, 0, 0.88 * reach, color=color(a_out),
+                _quiver(ax, x_c, y_air, z_top + s_l + 0.05 * reach, dx * 0.92, 0, 0.88 * reach, color=color(a_out),
                           lw=lw_air, arrow_length_ratio=0.18, alpha=alpha)
 
     if depth > 1:                                                  # segment indices along the tube
@@ -349,6 +367,125 @@ def plot_staggered_cells_3d(result, ops, geo, solver: str = "cell", gap: float =
     ax = fig.add_axes((-0.12, -0.08, 1.05, 1.12), projection="3d")   # 3D axes leave wide margins
     mappable = draw_staggered_cells_3d(ax, result, ops, geo, solver, gap=gap, depth=depth)
     add_qualitative_colorbar(fig, mappable, None, cax=fig.add_axes((0.9, 0.25, 0.02, 0.5)))
+    return fig
+
+
+def draw_three_row_cells_3d(ax, result, ops, geo, gap: float = 0.9, depth: int = 2, fins_per_cell: int = 2):
+    """Like draw_staggered_cells_3d, but the whole depth of a 3-row cooler:
+    air inlet row (3 tubes, coolant leaves the cooler here), the inner row
+    (2 tubes) and the air outlet row (3 tubes, coolant enters here). Needs a
+    Cell 3D result with N_r = 3. Air arrows end in every drawn cell from the
+    two tubes upstream (get_staggered_air_inlet); the edge cells of the top
+    row also get air from an inner-row tube outside the picture (faded)."""
+    N_r, N_t, n_segments = result.T_c_grid.shape
+    if N_r != 3:
+        raise ValueError(f"draw_three_row_cells_3d needs a 3-row run, got N_r = {N_r}")
+    t = N_t // 2 - 1
+    s0 = n_segments // 2 - depth // 2
+    seg = [s0 + depth - 1 - j for j in range(depth)]               # j = 0 front, as in draw_staggered_cells_3d
+    norm, cmap, color = _temperature_colors(ops)
+
+    def temps(row, tube, s):
+        in_c, in_a = cell_inlet_temperatures(result, ops, geo, "cell", tube)
+        return ((in_c[row, s] + result.T_c_grid[row, tube, s]) / 2,
+                in_a[row, s], result.T_a_grid[row, tube, s])
+
+    s_t, s_l = geo.s_t * 1000, geo.s_l * 1000
+    L, R = 1.2 * s_t, geo.d / 2 * 1000 * 1.4
+    G = gap * s_l
+    y_len = depth * L
+    lw_air = 3.0
+    z0 = [row * (s_l + G) for row in range(N_r)]                   # bottom of each row's cells
+    x_of = lambda row, tube: (tube - t + (0.5 if row % 2 else 0.0)) * s_t   # odd rows offset by s_t/2
+    tubes = {0: [t, t + 1, t + 2], 1: [t, t + 1], 2: [t, t + 1, t + 2]}
+
+    for row, tube_list in tubes.items():
+        x0, x1 = x_of(row, tube_list[0]) - s_t / 2, x_of(row, tube_list[-1]) + s_t / 2
+        for f in range(depth * fins_per_cell):
+            yf = (f + 0.5) * L / fins_per_cell
+            ax.add_collection3d(Poly3DCollection([[(x0, yf, z0[row]), (x1, yf, z0[row]), (x1, yf, z0[row] + s_l),
+                                                   (x0, yf, z0[row] + s_l)]],
+                                                 facecolor="#b0b0b0", edgecolor="#8a8a8a", lw=0.5, alpha=0.16))
+        zc = z0[row] + s_l / 2
+        into_page = row % 2 == 1                                   # cell_path_order: odd rows s falling
+        for tube in tube_list:
+            x_c = x_of(row, tube)
+            means = []
+            for j in range(depth):
+                mean_c, _, _ = temps(row, tube, seg[j])
+                means.append(mean_c)
+                _tube(ax, x_c, zc, j * L, (j + 1) * L, R, color(mean_c))
+                _box_edges(ax, x_c - s_t / 2, x_c + s_t / 2, j * L, (j + 1) * L, z0[row], z0[row] + s_l,
+                           color="#555555", lw=0.9, ls="--")
+            c_first, c_last = (means[0], means[-1]) if into_page else (means[-1], means[0])
+            if into_page:
+                _quiver(ax, x_c, -0.6 * L, zc, 0, 0.55 * L, 0, color=color(c_first), lw=3.5, arrow_length_ratio=0.35)
+                _quiver(ax, x_c, y_len + 0.05 * L, zc, 0, 0.55 * L, 0, color=color(c_last), lw=3.5,
+                          arrow_length_ratio=0.35)
+            else:
+                _quiver(ax, x_c, y_len + 0.6 * L, zc, 0, -0.55 * L, 0, color=color(c_first), lw=3.5,
+                          arrow_length_ratio=0.35)
+                _quiver(ax, x_c, -0.05 * L, zc, 0, -0.55 * L, 0, color=color(c_last), lw=3.5, arrow_length_ratio=0.35)
+            k = tube - t
+            ax.text(x_c - s_t / 2 + 0.06 * s_t, 0, z0[row] + 0.06 * s_l,
+                    f"$({row + 1},\\ t{'+' + str(k) if k else ''})$", fontsize=10, color="#333333", zorder=20)
+
+    # Row roles, right of the bank (thesis rows 1..N_r, air flows upwards)
+    roles = {0: "air inlet row\ncoolant leaves", 1: "inner row", 2: "air outlet row\ncoolant enters"}
+    for row, text in roles.items():
+        ax.text(2.5 * s_t + 0.25 * s_t, y_len + 0.3 * L, z0[row] + 0.35 * s_l, f"$r = {row + 1}$: " + text,
+                fontsize=10, color="#333333")
+
+    # Air, per segment: ambient below row 1, merge into every cell of rows 2 and 3, out above row 3
+    for j, s in enumerate(seg):
+        y_air = (j + 0.5) * L
+        alpha = 1.0 if j == 0 else 0.3                              # back segments faded: front one tells the story
+        for tube in tubes[0]:
+            _, a_in, _ = temps(0, tube, s)
+            _quiver(ax, x_of(0, tube), y_air, z0[0] - 0.65 * s_l, 0, 0, 0.6 * s_l, color=color(a_in), lw=lw_air,
+                      arrow_length_ratio=0.3, alpha=alpha)
+        for row in (1, 2):
+            z_from = z0[row - 1] + s_l + 0.05 * max(G, 0.3 * s_l)
+            z_mix = z0[row] - 0.05 * max(G, 0.3 * s_l)
+            for tube in tubes[row]:
+                x_c = x_of(row, tube)
+                upstream = (tube, tube + 1) if row % 2 else (tube - 1, tube)   # as get_staggered_air_inlet
+                for tube_low in upstream:
+                    x_from = x_of(row - 1, tube_low)
+                    shown = tube_low in tubes[row - 1]
+                    _quiver(ax, x_from, y_air, z_from, (x_c - x_from) * 0.92, 0, z_mix - z_from,
+                              color=color(result.T_a_grid[row - 1, tube_low, s]), lw=lw_air,
+                              arrow_length_ratio=0.18, alpha=alpha if shown else 0.35 * alpha)
+                _, a_in, _ = temps(row, tube, s)
+                ax.scatter([x_c], [y_air], [z0[row]], s=40, color=color(a_in), edgecolor="#333333", zorder=10,
+                           alpha=alpha)
+        for tube in tubes[2]:
+            _, _, a_out = temps(2, tube, s)
+            _quiver(ax, x_of(2, tube), y_air, z0[2] + s_l + 0.05 * s_l, 0, 0, 0.6 * s_l, color=color(a_out),
+                      lw=lw_air, arrow_length_ratio=0.3, alpha=alpha)
+
+    if depth > 1:
+        for j, s in enumerate(seg):
+            ax.text(2.5 * s_t + 0.1 * s_t, (j + 0.5) * L, z0[0], f"$s{'+' + str(s - s0) if s > s0 else ''}$",
+                    fontsize=10, color="#333333")
+
+    z_max = z0[2] + s_l + 0.8 * s_l
+    ax.set_xlim(-1.0 * s_t, 3.0 * s_t)
+    ax.set_ylim(-0.7 * L, y_len + 0.7 * L)
+    ax.set_zlim(z0[0] - 1.0 * s_l, z_max)
+    ax.set_box_aspect((4.0 * s_t, y_len + 1.4 * L, z_max - z0[0] + 1.0 * s_l), zoom=1.1)
+    ax.view_init(elev=18, azim=-62)
+    ax.set_axis_off()
+    return ScalarMappable(norm=norm, cmap=cmap)
+
+
+def plot_three_row_cells_3d(result, ops, geo, gap: float = 0.9, depth: int = 2):
+    fig = plt.figure(figsize=(11.5, 11))
+    if fig.canvas.manager:
+        fig.canvas.manager.set_window_title("Staggered cells, 3 rows (3D)")
+    ax = fig.add_axes((-0.12, -0.06, 1.05, 1.1), projection="3d")
+    mappable = draw_three_row_cells_3d(ax, result, ops, geo, gap=gap, depth=depth)
+    add_qualitative_colorbar(fig, mappable, None, cax=fig.add_axes((0.9, 0.3, 0.02, 0.4)))
     return fig
 
 
@@ -418,11 +555,11 @@ def draw_bend_cells_3d(ax, result, ops, geo, solver: str = "cell", gap: float = 
         # Upper cell: coolant from the front into the back
         _tube(ax, x_up, z_up_c, 0, L, R, color(mean_up))
         _box_edges(ax, x_up - s_t / 2, x_up + s_t / 2, 0, L, z_top, z_top + s_l, color="#555555", lw=0.9, ls="--")
-        ax.quiver(x_up, -0.6 * L, z_up_c, 0, 0.55 * L, 0, color=color(mean_up), lw=3.5, arrow_length_ratio=0.35)
+        _quiver(ax, x_up, -0.6 * L, z_up_c, 0, 0.55 * L, 0, color=color(mean_up), lw=3.5, arrow_length_ratio=0.35)
         # Lower cell: coolant from the bend back to the front
         _tube(ax, x_low, z_low_c, 0, L, R, color(mean_low))
         _box_edges(ax, x_low - s_t / 2, x_low + s_t / 2, 0, L, z_low, z_low + s_l, color="#555555", lw=0.9, ls="--")
-        ax.quiver(x_low, -0.05 * L, z_low_c, 0, -0.55 * L, 0, color=color(mean_low), lw=3.5, arrow_length_ratio=0.35)
+        _quiver(ax, x_low, -0.05 * L, z_low_c, 0, -0.55 * L, 0, color=color(mean_low), lw=3.5, arrow_length_ratio=0.35)
         # Straight stubs out of the fin block and the U-bend, at the coolant
         # temperature leaving the upper row (= entering the lower row)
         T_bend = result.T_c_grid[r, t + k, s]
@@ -444,20 +581,20 @@ def draw_bend_cells_3d(ax, result, ops, geo, solver: str = "cell", gap: float = 
     lower_out = {}
     for k, x_c in enumerate(lower_x):
         _, a_in, a_out = temps(r - 1, t + k)
-        ax.quiver(x_c, y_air, z_low - 0.65 * s_l, 0, 0, 0.6 * s_l, color=color(a_in), lw=lw_air, arrow_length_ratio=0.3)
+        _quiver(ax, x_c, y_air, z_low - 0.65 * s_l, 0, 0, 0.6 * s_l, color=color(a_in), lw=lw_air, arrow_length_ratio=0.3)
         lower_out[k] = a_out
         for x_to in (x_c - 0.5 * s_t, x_c + 0.5 * s_t):
-            ax.quiver(x_c, y_air, z_from, (x_to - x_c) * 0.92, 0, z_mix - z_from, color=color(a_out),
+            _quiver(ax, x_c, y_air, z_from, (x_to - x_c) * 0.92, 0, z_mix - z_from, color=color(a_out),
                       lw=lw_air, arrow_length_ratio=0.18)
     # Second source of the right upper cell: tube t+2 of row r-1, outside the picture
     _, _, a_out_t2 = temps(r - 1, t + 2)
-    ax.quiver(2 * s_t, y_air, z_from, -0.5 * s_t * 0.92, 0, z_mix - z_from, color=color(a_out_t2),
+    _quiver(ax, 2 * s_t, y_air, z_from, -0.5 * s_t * 0.92, 0, z_mix - z_from, color=color(a_out_t2),
               lw=lw_air, arrow_length_ratio=0.18, alpha=0.45)
     for k, x_c in enumerate(upper_x):
         _, a_in, a_out = temps(r, t + k)
         ax.scatter([x_c], [y_air], [z_mix if G == 0 else z_top], s=40, color=color(a_in), edgecolor="#333333", zorder=10)
         for dx in (-0.5 * s_t, 0.5 * s_t):
-            ax.quiver(x_c, y_air, z_top + s_l + 0.05 * reach, dx * 0.92, 0, 0.88 * reach, color=color(a_out),
+            _quiver(ax, x_c, y_air, z_top + s_l + 0.05 * reach, dx * 0.92, 0, 0.88 * reach, color=color(a_out),
                       lw=lw_air, arrow_length_ratio=0.18)
 
     rho = np.hypot(0.5 * s_t, s_l + G) / 2
@@ -603,6 +740,115 @@ def plot_precooler_paths(ambient, precooled, geo):
 
 
 # =============================================================================
+# Marching order of one iteration (sweep_two_way), 2D: one tube circuit
+# =============================================================================
+# Topology only, no run: pass 1 visits the cells in cell_path_order and
+# updates the coolant (air inlets from iteration n-1); pass 2 visits them row
+# by row in the air direction and updates the air (coolant from pass 1).
+
+COLOR_COOLANT = "#b2182b"        # cold/hot ends of CMAP: only to tell the fluids apart
+COLOR_AIR = "#2166ac"
+COLOR_FADED = "#bdbdbd"
+
+
+def _order_badge(ax, x, y, number, color):
+    """Visiting order: fixed-size circle (one or two digits alike) with the number."""
+    ax.scatter([x], [y], s=290, facecolor="white", edgecolor=color, lw=1.2, zorder=6)
+    ax.text(x, y, str(number), ha="center", va="center_baseline", fontsize=9.5, color=color, zorder=7)
+
+
+def _marching_grid(ax, n_rows, n_segments, coolant_color, title):
+    """Cells, tube bands, U-bends, row / segment labels (thesis indices 1..N)."""
+    half = TUBE_WIDTH / 2
+    for r in range(n_rows):
+        y = r + 0.5
+        for s in range(n_segments):
+            ax.add_patch(Rectangle((s, r), 1, 1, facecolor="#f4f4f4", edgecolor="#9e9e9e", lw=0.8))
+        ax.add_patch(Rectangle((0, y - half), n_segments, TUBE_WIDTH, facecolor=coolant_color, alpha=0.25,
+                               edgecolor="none", zorder=1))
+        if r > 0:                                                  # bend from row r to row r-1
+            x_end = n_segments if r % 2 == 0 else 0
+            theta1, theta2 = (-90, 90) if r % 2 == 0 else (90, 270)
+            ax.add_patch(Wedge((x_end, y - 0.5), 0.5 + half, theta1, theta2, width=TUBE_WIDTH,
+                               facecolor=coolant_color, alpha=0.25, edgecolor="none"))
+        ax.text(-0.95, y, f"$r = {r + 1}$", ha="right", va="center", fontsize=10.5, color="#333333")
+    for s in range(n_segments):                                    # below the air inlet arrows
+        ax.text(s + 0.5, -0.36, f"$s = {s + 1}$", ha="center", va="top", fontsize=10.5, color="#333333")
+    ax.set_title(title, fontsize=12, loc="left")
+    ax.set_xlim(-1.9, n_segments + 1.9)
+    ax.set_ylim(-1.15, n_rows + 0.8)
+    ax.set_aspect("equal")
+    ax.set_axis_off()
+
+
+def draw_marching_coolant(ax, n_rows, n_segments):
+    """Pass 1: cells numbered in coolant path order, arrows along the path;
+    air enters every cell from below with last iteration's values (dashed)."""
+    _marching_grid(ax, n_rows, n_segments, COLOR_COOLANT, "(a) Pass 1: coolant, along its path")
+    for s in range(n_segments):                                    # air inlets: iteration n-1
+        for r in range(n_rows):
+            ax.add_patch(FancyArrowPatch((s + 0.82, r - 0.12), (s + 0.82, r + 0.3), arrowstyle="-|>",
+                                         color=COLOR_AIR, lw=1.3, ls=(0, (2.5, 1.5)), mutation_scale=9,
+                                         zorder=4))
+    path = cell_path_order(n_rows, n_segments)
+    centre = lambda r, s: (s + 0.5, r + 0.5)
+    x_in = 0 if (n_rows - 1) % 2 == 0 else n_segments
+    side = -1 if x_in == 0 else 1
+    _arrow(ax, (x_in + side * 0.9, n_rows - 0.5), (x_in + side * 0.05, n_rows - 0.5), COLOR_COOLANT, lw=1.8)
+    ax.text(x_in + side * 0.95, n_rows - 0.5 + 0.28, "$T_{c,i}$", ha="center", va="bottom", fontsize=11)
+    for (r0, s0), (r1, s1) in zip(path[:-1], path[1:]):
+        a, b = centre(r0, s0), centre(r1, s1)
+        if r0 == r1:
+            _arrow(ax, (a[0] + 0.2 * np.sign(b[0] - a[0]), a[1]), (b[0] - 0.2 * np.sign(b[0] - a[0]), b[1]),
+                   COLOR_COOLANT, lw=1.6, zorder=5)
+        else:                                                      # U-bend: out to the row end, around, back in
+            x_end = n_segments if s0 == n_segments - 1 else 0
+            out = 1 if x_end else -1
+            ax.plot([a[0] + 0.2 * out, x_end], [a[1], a[1]], color=COLOR_COOLANT, lw=1.6, zorder=5)
+            theta = np.linspace(np.pi / 2, -np.pi / 2, 60) if out > 0 else np.linspace(np.pi / 2, 3 * np.pi / 2, 60)
+            ax.plot(x_end + 0.5 * np.cos(theta), (a[1] + b[1]) / 2 + 0.5 * np.sin(theta),
+                    color=COLOR_COOLANT, lw=1.6, zorder=5)                 # semicircle on the bend's centre line
+            _arrow(ax, (x_end, b[1]), (b[0] + 0.2 * out, b[1]), COLOR_COOLANT, lw=1.6, zorder=5)
+    r_out, s_out = path[-1]
+    _arrow(ax, (s_out + 1.05, 0.5), (s_out + 1.9, 0.5), COLOR_COOLANT, lw=1.8)
+    ax.text(s_out + 1.95, 0.5 + 0.28, "$T_{c,o}$", ha="center", va="bottom", fontsize=11)
+    for k, (r, s) in enumerate(path):
+        _order_badge(ax, *centre(r, s), k + 1, COLOR_COOLANT)
+    ax.text(n_segments / 2, -0.85, "air inlets: previous iteration $n-1$ (dashed)", ha="center", va="top",
+            fontsize=10, color=COLOR_AIR)
+
+
+def draw_marching_air(ax, n_rows, n_segments):
+    """Pass 2: cells numbered row by row in the air direction; air passes
+    from each row to the next within the same iteration; coolant from pass 1."""
+    _marching_grid(ax, n_rows, n_segments, COLOR_FADED, "(b) Pass 2: air, row by row")
+    for s in range(n_segments):
+        x = s + 0.5
+        for r in range(n_rows + 1):                                # across each row boundary, same length
+            _arrow(ax, (x + 0.32, r - 0.28), (x + 0.32, r + 0.28), COLOR_AIR, lw=1.6, zorder=4)
+    ax.text(n_segments + 0.15, -0.2, "$T_{a,i}$", ha="left", va="center", fontsize=11)
+    ax.text(n_segments + 0.15, n_rows + 0.2, "$T_{a,o}$", ha="left", va="center", fontsize=11)
+    k = 0
+    for r in range(n_rows):
+        for s in range(n_segments):
+            k += 1
+            _order_badge(ax, s + 0.5, r + 0.5, k, COLOR_AIR)
+    ax.text(n_segments / 2, -0.85, "coolant: from pass 1, same iteration $n$", ha="center", va="top",
+            fontsize=10, color="#757575")
+
+
+def plot_marching_order(n_rows: int = 3, n_segments: int = 4):
+    """One iteration of sweep_two_way on a single tube circuit (2D)."""
+    fig, axes = plt.subplots(1, 2, figsize=(11, 4.0))
+    if fig.canvas.manager:
+        fig.canvas.manager.set_window_title("Marching order")
+    draw_marching_coolant(axes[0], n_rows, n_segments)
+    draw_marching_air(axes[1], n_rows, n_segments)
+    fig.tight_layout()
+    return fig
+
+
+# =============================================================================
 # Figures
 # =============================================================================
 
@@ -659,9 +905,11 @@ def render_all(out_dir: Path, fmt: str = "pdf", solver: str = "cell", n_segments
     cell_run = run if solver == "cell" else run_model("cell", n_segments, n_rows)   # neighbour mixing: Cell only
     circuit_run = run_model(solver, n_segments or CIRCUIT_SEGMENTS, n_rows or CIRCUIT_ROWS)
     figures = {"circuit": plot_flow_schematic(*circuit_run, solver=solver)}
+    figures["marching_order"] = plot_marching_order()
     figures["precooler_paths"] = plot_precooler_paths(*run_precooler_scenarios(n_segments, n_rows))
     for name, (gap, depth) in CELL_VERSIONS.items():
         figures[name] = plot_staggered_cells_3d(*cell_run, solver="cell", gap=gap, depth=depth)
+    figures["cells_exploded_3rows"] = plot_three_row_cells_3d(*run_model("cell", n_segments, 3))
     figures["cells_bend"] = plot_bend_cells_3d(*cell_run, solver="cell", gap=0.9)
     figures["cells_bend_real"] = plot_bend_cells_3d(*cell_run, solver="cell", gap=0.0)
     paths = []

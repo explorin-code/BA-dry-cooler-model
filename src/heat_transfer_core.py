@@ -13,6 +13,8 @@ variant), then coolant-side helpers, then the two orchestrators.
 
 from math import log10, log, tanh
 
+from src.profiling import timed
+
 
 # =============================================================================
 # 1. AIR-SIDE HELPERS
@@ -222,6 +224,7 @@ def _compute_air_side(geo, ops, air_state, T_a_m: float):
     return w_e_m, Nu_a, alpha_a
 
 
+@timed('k')
 def calc_overall_k(geo, ops, coolant_state, air_state, T_a_m: float) -> float:
     """Overall heat transfer coefficient k [W/m²K], referred to the outer
     (air-side) surface: 1/k = 1/alpha_a_eff + A/A_c * (1/alpha_c + delta_p/lambda_p), with the

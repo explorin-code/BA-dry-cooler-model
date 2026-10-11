@@ -1,0 +1,7 @@
+case,T_a_i,phi,p_a,note
+coldest,-10.7,0.88,95230.0,coldest hour (2026-01-06 06h UTC)
+median,10.9,0.752,95785.0,"median (T at the 50 % quantile, median phi of nearby hours)"
+P95,27.6,0.38849999999999996,95775.0,"95 % quantile (T at the 95 % quantile, median phi of nearby hours)"
+P99,32.7,0.281,95710.0,"99 % quantile (T at the 99 % quantile, median phi of nearby hours)"
+hottest,36.7,0.13,95620.0,hottest hour (2026-07-30 15h UTC)
+wettest_warm,22.8,0.9129999999999999,95640.0,highest wet-bulb hour (2026-08-01 18h UTC)

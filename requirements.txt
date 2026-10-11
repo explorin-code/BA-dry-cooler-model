@@ -10,3 +10,6 @@ seaborn>=0.13.2      # convergence figure style (run_scenario.py)
 # GUI only (streamlit run gui.py)
 streamlit>=1.65.0
 pandas>=3.0.6
+
+# Tests (pytest; run from the repo root)
+pytest>=8.0

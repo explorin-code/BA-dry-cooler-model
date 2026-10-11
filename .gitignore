@@ -4,3 +4,5 @@ __pycache__/
 venv/
 cache/
 thesis_figures/out/
+output/comparison/
+raw_climate_data/

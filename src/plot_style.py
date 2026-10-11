@@ -10,15 +10,43 @@ axis-tick math.
 import numpy as np
 import matplotlib.colors as mc
 
-COLOR_LMTD = "#1b7837"  # green
-COLOR_NTU = "#762a83"   # purple
-COLOR_CELL = "#e08214"  # orange
+# --- TUM Corporate Design (Handbuch 2016, p. 20-21) -------------------------------------------------------
+# The handbook prints Pantone 300 as RGB 0/101/189 but as Hex #3070b3; the RGB value (= #0065BD) is used.
+TUM_BLUE = "#0065BD"             # Markenfarbe, Pantone 300
+TUM_BLUE_301 = "#005293"         # secondary, Pantone 301
+TUM_BLUE_540 = "#003359"         # secondary, Pantone 540
+TUM_GREY_80, TUM_GREY_50, TUM_GREY_20 = "#333333", "#808080", "#CCCCCC"        # tints of black
+TUM_ACCENT_LIGHT_BLUE = "#98C6EA"   # Akzentfarbe, Pantone 283
+TUM_ACCENT_BLUE = "#64A0C8"         # Akzentfarbe, Pantone 542
+TUM_IVORY = "#DAD7CB"               # Akzentfarbe, Elfenbein
+TUM_ORANGE = "#E37222"              # Akzentfarbe
+TUM_GREEN = "#A2AD00"               # Akzentfarbe, Gruen
+
+# One accent colour per solver family; the second variant of a family in a lighter tone (the handbook's two accent blues
+# are the NTU variants, Cell's second variant is a tint of the orange).
+COLOR_LMTD = TUM_GREEN
+COLOR_NTU = TUM_ACCENT_BLUE
+COLOR_CELL = TUM_ORANGE
 
 
 def lighten_color(color, factor=0.5):
     """Blend `color` toward white. factor=0 -> unchanged, factor=1 -> white."""
     r, g, b = mc.to_rgb(color)
     return (r + (1 - r) * factor, g + (1 - g) * factor, b + (1 - b) * factor)
+
+
+def family_color(key: str):
+    """One colour per algorithm family (LMTD green, NTU blue, Cell orange) -- for results, which are identical
+    within a family."""
+    return {'lmtd': COLOR_LMTD, 'ntu_field': COLOR_NTU, 'ntu_table': COLOR_NTU,
+            'cell_2d': COLOR_CELL, 'cell_3d': COLOR_CELL}[key]
+
+
+def solver_color(key: str, air: bool = False):
+    """Colour of one of the five solver variants (benchmarks): the family hue; NTU (table) in the handbook's light
+    blue, Cell (2D) in a tint of the orange; air=True lighter again (air-side curves)."""
+    base = {'ntu_table': TUM_ACCENT_LIGHT_BLUE, 'cell_2d': lighten_color(COLOR_CELL, 0.45)}.get(key, family_color(key))
+    return lighten_color(base, 0.55) if air else base
 
 
 _NICE_FRACTIONS = [1, 2, 2.5, 5, 10]
@@ -63,6 +91,20 @@ def _nice_ticks(data_lo, data_hi, n_intervals: int = 4):
             return ticks
         step = _next_nice_step(step)
     return ticks
+
+
+def nice_tick_sets(ranges, n_options=range(3, 7), per_interval=0.04):
+    """Round-number ticks for several axes that must share gridlines: one common number of intervals n for all of them
+    (so unrelated quantities' gridlines align), chosen from n_options as the one whose axes waste the least space
+    beyond the data (largest unused share over the axes) plus `per_interval` per interval (fewer tick labels = less
+    crowded axes). ranges: [(lo, hi), ...]; returns one tick array per range."""
+    best = None
+    for n in n_options:
+        sets = [_nice_ticks(lo, hi, n) for lo, hi in ranges]
+        waste = max(1 - (hi - lo) / (t[-1] - t[0]) if t[-1] > t[0] else 0 for (lo, hi), t in zip(ranges, sets)) + per_interval * n
+        if best is None or waste < best[0] - 1e-9:
+            best = (waste, sets)
+    return best[1]
 
 
 # =============================================================================

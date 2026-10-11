@@ -11,6 +11,7 @@ Section L1.3, p. 1369 (bends). Air source: Wang, Chi & Chang, Part II
 import warnings
 from math import log
 
+from src.fluid_properties import get_air_properties
 from src.heat_transfer_core import calc_Re_c, calc_Re_a
 
 # =============================================================================
@@ -186,3 +187,14 @@ def calc_delta_p_air_total(Delta_p_bundle: float, Delta_p_pad: float = None) -> 
     if Delta_p_pad is None:
         return Delta_p_bundle
     return Delta_p_bundle + Delta_p_pad
+
+
+def calc_delta_p_air(geo, ops, T_a_o: float, through_pad: bool) -> float:
+    """Total air-side pressure drop [Pa] of one operating state: the bundle (states at the inlet, outlet and mean
+    air temperature, T_a_o from the Cell result -- the same reference the precooling decider uses) plus the pad
+    if the air passes it (always when precooling; in dry operation per parameters.PAD_IN_DRY_AIR_PATH)."""
+    air_in = get_air_properties(ops, ops.T_a_i, ops.p_a)
+    air_out = get_air_properties(ops, T_a_o, ops.p_a)
+    air_mean = get_air_properties(ops, (ops.T_a_i + T_a_o) / 2.0, ops.p_a)
+    Delta_p_bundle = calc_delta_p_bundle_air(geo, ops, air_in, air_out, air_mean)
+    return calc_delta_p_air_total(Delta_p_bundle, calc_delta_p_pad() if through_pad else None)

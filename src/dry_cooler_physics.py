@@ -9,7 +9,8 @@ parameters.py; everything else here is derived from those.
 from dataclasses import dataclass
 import numpy as np
 
-from src.param_loader import from_parameters, MM
+from src.cooler_sets import CELL_SETS
+from src.param_loader import MM
 
 
 # Solid thermal conductivities [W/m-K], shared by fin and pipe.
@@ -53,7 +54,7 @@ class Geometry:
     # --- Intermediate ----------------------------------------------------
     # AI-REVIEW: the fin count follows from the fin pitch; it replaced a
     # hardcoded "9 fins/inch" constant that was inconsistent with s_f. Confirm
-    # against the physical hardware (see CLAUDE.md).
+    # against the physical hardware (see docs/review-needed.md).
     @property
     def N_f(self) -> int:
         """Number of fins along one tube pass (whole fins only)."""
@@ -175,19 +176,40 @@ class Geometry:
         return self.sigma * self.A_fr
 
 
+# parameters.py constant -> (CellSet attribute, divisor): the elementary cell, preset + overrides
+CELL_PARAMETERS = {
+    'D_TUBE_OUTER_MM': 'd_mm', 'D_TUBE_INNER_MM': 'd_i_mm', 'FIN_THICKNESS_MM': 'delta_f_mm',
+    'FIN_PITCH_MM': 's_f_mm', 'PITCH_TRANSVERSE_MM': 's_t_mm', 'PITCH_LONGITUDINAL_MM': 's_l_mm',
+    'FIN_COLLAR_THICKNESS_MM': 'delta_c_mm', 'PIPE_MATERIAL': 'pipe_material', 'FIN_MATERIAL': 'fin_material',
+}
+
+
+def get_cell_values() -> dict:
+    """The elementary cell of the current run: the preset cell (parameters.GEOMETRY_SET, src/cooler_sets.py)
+    with every parameters.py constant that is not None replacing the preset's value. {CellSet attribute: value}."""
+    import src.parameters as parameters
+    from src.cooler_sets import CELL_SETS
+    preset = CELL_SETS[parameters.GEOMETRY_SET] if parameters.GEOMETRY_SET else None
+    values = {}
+    for constant, attribute in CELL_PARAMETERS.items():
+        override = getattr(parameters, constant)
+        if override is not None:
+            values[attribute] = override
+        elif preset is not None:
+            values[attribute] = getattr(preset, attribute)
+        else:
+            raise ValueError(f"GEOMETRY_SET is None, so {constant} must be given.")
+    return values
+
+
 def get_geometry() -> Geometry:
-    """Current cooler design -- edit parameters.py to change the numbers."""
-    return from_parameters(Geometry, {
-        'd': ('D_TUBE_OUTER_MM', MM),
-        'delta_f': ('FIN_THICKNESS_MM', MM),
-        's_f': ('FIN_PITCH_MM', MM),
-        'd_i': ('D_TUBE_INNER_MM', MM),
-        'N_t': 'N_TUBES',
-        'N_r': 'N_ROWS',
-        's_t': ('PITCH_TRANSVERSE_MM', MM),
-        's_l': ('PITCH_LONGITUDINAL_MM', MM),
-        'l': ('HEIGHT_MM', MM),
-        'pipe_material': 'PIPE_MATERIAL',
-        'fin_material': 'FIN_MATERIAL',
-        'delta_c': ('FIN_COLLAR_THICKNESS_MM', MM),
-    })
+    """Current cooler: the elementary cell (preset + overrides, see get_cell_values) in a module of
+    N_TUBES (None: the preset's reference count) x N_ROWS tubes of length HEIGHT_MM -- edit parameters.py."""
+    import src.parameters as parameters
+    c = get_cell_values()
+    N_t = parameters.N_TUBES or CELL_SETS[parameters.GEOMETRY_SET].N_t_ref     # fixed per preset, not tied to the inputs
+    return Geometry(
+        d=c['d_mm'] / MM, delta_f=c['delta_f_mm'] / MM, s_f=c['s_f_mm'] / MM, d_i=c['d_i_mm'] / MM,
+        N_t=N_t, N_r=parameters.N_ROWS, s_t=c['s_t_mm'] / MM, s_l=c['s_l_mm'] / MM,
+        l=parameters.HEIGHT_MM / MM, pipe_material=c['pipe_material'], fin_material=c['fin_material'],
+        delta_c=c['delta_c_mm'] / MM)

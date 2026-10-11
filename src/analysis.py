@@ -5,7 +5,7 @@ Reconstructs a comparable spatial profile (temperature, k, dQ/dL along the
 coolant's flow path) for each solver from its already-converged output.
 Cell's and NTU's profiles are genuine reductions of the element/cell grids
 they already computed. LMTD's is a post-hoc reconstruction from its own
-converged scalars -- NOT something it tracks internally. See CLAUDE.md.
+converged scalars -- NOT something it tracks internally. See docs/review-needed.md.
 """
 
 from dataclasses import dataclass
@@ -24,9 +24,9 @@ class ProfileData:
     dQdL: object
 
 
-# AI-REVIEW: closed-form reconstruction of LMTD's implied exponential T(x)
+# closed-form reconstruction of LMTD's implied exponential T(x)
 # profile, derived from the log-mean assumption itself -- not something
-# solve_it_LMTD computes. See CLAUDE.md.
+# solve_it_LMTD computes. See docs/review-needed.md.
 def calc_lmtd_profile(lmtd_result, ops, geo, n_points: int = 200) -> ProfileData:
     Delta_T_hot = ops.T_c_i - lmtd_result.T_a_o
     Delta_T_cold = lmtd_result.T_c_o - ops.T_a_i

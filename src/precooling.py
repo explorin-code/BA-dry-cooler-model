@@ -22,13 +22,13 @@ def calc_eta_B ():
     return 0.8
 
 def precooling_decider(cell_result):
-    """Precool if the already-solved ambient scenario's Cell T_c_o
-    is above the target. Takes the Cell SolverResult directly -- no
+    """Precool if the already-solved ambient scenario's reference-solver T_c_o
+    is above the target. Takes the reference SolverResult directly -- no
     re-solving, so this can't drift from what was actually reported."""
     target = parameters.T_COOLANT_TARGET_OUT
     decision = cell_result.T_c_o > target
     comparison = ">" if decision else "<="
-    logger.info("[Decider] Cell T_coolant_out = %.2f °C %s target = %.2f °C -> %s",
+    logger.info("[Decider] reference solver T_coolant_out = %.2f °C %s target = %.2f °C -> %s",
                 cell_result.T_c_o, comparison, target,
                 'precooling engaged' if decision else 'no precooling needed')
     return decision
@@ -87,39 +87,48 @@ def calc_cooling_limit(ops):
         # -- fall back to "no cooling potential" rather than crashing
         return ops.T_a_i
 
-def calc_precooler(ops, ambient_result):
+def calc_precooled_ops(ops, geo=None):
+    """Operating point after the adiabatic pad: inlet air cooled/humidified
+    by the degree of humidification eta_B toward the cooling limit T_K, same
+    face velocity (the mass flow follows the new density) and coolant mass
+    flow. geo: the Geometry the flows are resolved against -- pass the one
+    in use, otherwise OperatingConditions falls back to parameters.py."""
+    eta_B = calc_eta_B()
+
+    T_K = calc_cooling_limit(ops)
+    T_a_i = ops.T_a_i
+
+    Y_i = ops.Y
+    Y_K = calc_Y(T_K, ops.p_a, 1.0)
+
+    # Source: VDI Wärmeatlas, Chapter M8, §2.2, Gl. (13), p.1778 --
+    # confirmed 2026-08 against the 12th ed. Gl.(13) states
+    # eta_B = (Y_pc-Y_i)/(Y_K-Y_i) ~= (T_a_i-T_a_pc)/(T_a_i-T_K);
+    # both lines below are that same equation solved for Y_pc and
+    # T_a_pc respectively.
+    T_a_pc = T_a_i - eta_B * (T_a_i - T_K)
+    Y_pc = Y_i + eta_B * (Y_K - Y_i)
+
+    return dataclasses.replace(
+        ops,
+        T_a_i=T_a_pc,
+        Y=Y_pc,
+        phi=None,
+        w_fr=ops.w_fr,
+        m_dot_a=0.0,
+        V_dot_a=0.0,
+        w_c=0.0,
+        V_dot_c=0.0,
+        geo=geo,
+    )
+
+
+def calc_precooler(ops, ambient_result, geo=None):
     """returns (ops, was_precooled). ops unchanged and was_precooled=False
     if the decider says no precooling is needed. ambient_result is the
-    already-solved ScenarioResult for `ops` -- the decider reads its Cell
-    result rather than re-solving."""
-    if precooling_decider(ambient_result.cell):
-        eta_B = calc_eta_B()
-
-        T_K = calc_cooling_limit(ops)
-        T_a_i = ops.T_a_i
-
-        Y_i = ops.Y
-        Y_K = calc_Y(T_K, ops.p_a, 1.0)
-
-        # Source: VDI Wärmeatlas, Chapter M8, §2.2, Gl. (13), p.1778 --
-        # confirmed 2026-08 against the 12th ed. Gl.(13) states
-        # eta_B = (Y_pc-Y_i)/(Y_K-Y_i) ~= (T_a_i-T_a_pc)/(T_a_i-T_K);
-        # both lines below are that same equation solved for Y_pc and
-        # T_a_pc respectively.
-        T_a_pc = T_a_i - eta_B * (T_a_i - T_K)
-        Y_pc = Y_i + eta_B * (Y_K - Y_i)
-
-        ops = dataclasses.replace(
-            ops,
-            T_a_i=T_a_pc,
-            Y=Y_pc,
-            phi=None,
-            w_fr=ops.w_fr,
-            m_dot_a=0.0,
-            V_dot_a=0.0,
-            w_c=0.0,
-            V_dot_c=0.0,
-        )
-        return ops, True
+    already-solved ScenarioResult for `ops` -- the decider reads its reference (most
+    detailed) solver result rather than re-solving."""
+    if precooling_decider(ambient_result.reference):
+        return calc_precooled_ops(ops, geo), True
 
     return ops, False

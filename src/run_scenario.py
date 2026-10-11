@@ -10,10 +10,10 @@ the convergence panels used by the convergence figure
 
 import seaborn as sns
 
-from src.solvers import ScenarioResult
+from src.solvers import SOLVER_FAMILY, ScenarioResult
 from src.operating_conditions import OperatingConditions
 from src.economics import calc_total_power
-from src.plot_style import COLOR_LMTD, COLOR_NTU, COLOR_CELL, lighten_color
+from src.plot_style import family_color, lighten_color
 
 sns.set_theme(style="whitegrid", context="talk")
 
@@ -73,9 +73,9 @@ def calc_deviation(value: float, reference: float) -> float:
     return (value - reference) / reference * 100.0
 
 
-def format_output_conditions(label: str, result, T_a_i: float, reference=None) -> str:
+def format_output_conditions(label: str, result, T_a_i: float, reference=None, reference_label: str = "Cell") -> str:
     """Terminal text: outlet temperatures, pinch and Q; for LMTD/NTU
-    (reference = the Cell SolverResult) their deviation from Cell; then
+    (reference = the reference SolverResult) their deviation from Cell; then
     final-iteration Pr/Re/Nu for both sides. The figure uses
     output_condition_cells() instead (subscripts, aligned columns)."""
     diagnostics = result.diagnostics
@@ -90,7 +90,7 @@ def format_output_conditions(label: str, result, T_a_i: float, reference=None) -
     ]
     if reference is not None:
         pinch_ref = calc_pinch(reference.T_c_o, T_a_i)
-        lines.append(f"vs. Cell:   Q {calc_deviation(result.Q_dot, reference.Q_dot):+5.2f} %   "
+        lines.append(f"vs. {reference_label}:   Q {calc_deviation(result.Q_dot, reference.Q_dot):+5.2f} %   "
                      f"{dT_pinch} {calc_deviation(pinch, pinch_ref):+5.2f} %")
     lines += [
         "",
@@ -140,7 +140,7 @@ def economics_cells(P_pump, P_fan, m_dot_ev) -> list:
               f"{m_dot_ev * 1000:6.3f} g/s" if m_dot_ev is not None else "n/a"]]]
 
 
-def output_condition_cells(label: str, result, T_a_i: float, reference=None) -> list:
+def output_condition_cells(label: str, result, T_a_i: float, reference=None, reference_label: str = "Cell") -> list:
     """Blocks for one solver's result box: outlets/pinch/Q, for LMTD/NTU the
     deviation from Cell directly below the pinch and Q values, an empty
     line, then Pr/Re/Nu/alpha for both sides (own aligned columns)."""
@@ -153,7 +153,7 @@ def output_condition_cells(label: str, result, T_a_i: float, reference=None) -> 
     ]
     if reference is not None:
         pinch_ref = calc_pinch(reference.T_c_o, T_a_i)
-        outputs.append(["vs. Cell:", "", "", "", "", "", f"{calc_deviation(pinch, pinch_ref):+5.2f} %",
+        outputs.append([f"vs. {reference_label}:", "", "", "", "", "", f"{calc_deviation(pinch, pinch_ref):+5.2f} %",
                         "", f"{calc_deviation(result.Q_dot, reference.Q_dot):+6.2f} %"])
     numbers = [
         ["Coolant:", r"$Pr$ =", f"{d['Pr_c']:6.3f}", r"$Re$ =", f"{d['Re_c']:7.1f}",
@@ -181,47 +181,27 @@ def format_economics(P_pump, P_fan, m_dot_ev) -> str:
 
 def draw_convergence(ax1, ax2, result: ScenarioResult, ops: OperatingConditions, omega: float,
                      cell_omega: float):
-    """Convergence panels for an already-solved ScenarioResult: outlet
-    temperatures per iteration (ax1) and per-iteration errors (ax2).
-    omega: LMTD/NTU's relaxation factor, cell_omega: Cell's own."""
+    """Convergence panels for an already-solved ScenarioResult: outlet temperatures per iteration (ax1) and
+    per-iteration errors (ax2), one colour per solver that ran. omega: LMTD/NTU's relaxation factor, cell_omega:
+    Cell's own."""
     omega_text = f"$\\omega$: LMTD/NTU = {omega}, Cell = {cell_omega}"
-    lmtd, ntu, cell = result.lmtd, result.ntu, result.cell
+    results = result.results
+    max_len_temp = max(len(r.history_T_c_o) for r in results.values())
+    max_len_err = max(len(r.history_hot) for r in results.values())
 
-    # --- Colors: one hue per solver, air = lighter tone of the coolant hue ---
-    color_lmtd_air = lighten_color(COLOR_LMTD, 0.55)
-    color_ntu_air = lighten_color(COLOR_NTU, 0.55)
-    color_cell_air = lighten_color(COLOR_CELL, 0.55)
-
-    color_lmtd_hoterr = lighten_color(COLOR_LMTD, 0.45)
-    color_ntu_hoterr = lighten_color(COLOR_NTU, 0.45)
-    color_cell_hoterr = lighten_color(COLOR_CELL, 0.45)
-
-    max_len_temp = max(len(lmtd.history_T_c_o), len(ntu.history_T_c_o), len(cell.history_T_c_o))
-    max_len_err = max(len(lmtd.history_hot), len(ntu.history_hot), len(cell.history_hot))
-
-    # --- Left: outlet temperatures -------------------------------------
-    plot_with_tail(ax1, lmtd.history_T_c_o, max_len_temp, COLOR_LMTD, r"LMTD – $T_{c,o}$")
-    plot_with_tail(ax1, lmtd.history_T_a_o, max_len_temp, color_lmtd_air, r"LMTD – $T_{a,o}$")
-    plot_with_tail(ax1, ntu.history_T_c_o, max_len_temp, COLOR_NTU, r"NTU – $T_{c,o}$")
-    plot_with_tail(ax1, ntu.history_T_a_o, max_len_temp, color_ntu_air, r"NTU – $T_{a,o}$")
-    plot_with_tail(ax1, cell.history_T_c_o, max_len_temp, COLOR_CELL, r"Cell – $T_{c,o}$")
-    plot_with_tail(ax1, cell.history_T_a_o, max_len_temp, color_cell_air, r"Cell – $T_{a,o}$")
+    for key, r in results.items():
+        label, color = SOLVER_FAMILY[key], family_color(key)
+        plot_with_tail(ax1, r.history_T_c_o, max_len_temp, color, rf"{label} – $T_{{c,o}}$")
+        plot_with_tail(ax1, r.history_T_a_o, max_len_temp, lighten_color(color, 0.55), rf"{label} – $T_{{a,o}}$")
+        plot_with_tail(ax2, r.history_hot, max_len_err, lighten_color(color, 0.55), rf"{label} – error $\Delta T_{{hot}}$")
+        plot_with_tail(ax2, r.history_cold, max_len_err, color, rf"{label} – error $\Delta T_{{cold}}$")
 
     ax1.axhline(ops.T_a_i, color='blue', linewidth=1.5, linestyle='--', alpha=0.8, zorder=1, label=r"$T_{a,i}$")
     ax1.axhline(ops.T_c_i, color='red', linewidth=1.5, linestyle='--', alpha=0.8, zorder=1, label=r"$T_{c,i}$")
-
     ax1.set_title(f"Outlet Temperatures ({omega_text})")
     ax1.set_xlabel("Iteration")
     ax1.set_ylabel("Temperature [°C]")
     ax1.legend(fontsize=9)
-
-    # --- Right: errors (Delta_T_hot / Delta_T_cold) -------------------------------
-    plot_with_tail(ax2, lmtd.history_hot, max_len_err, color_lmtd_hoterr, r"LMTD – error $\Delta T_{hot}$")
-    plot_with_tail(ax2, lmtd.history_cold, max_len_err, COLOR_LMTD, r"LMTD – error $\Delta T_{cold}$")
-    plot_with_tail(ax2, ntu.history_hot, max_len_err, color_ntu_hoterr, r"NTU – error $\Delta T_{hot}$")
-    plot_with_tail(ax2, ntu.history_cold, max_len_err, COLOR_NTU, r"NTU – error $\Delta T_{cold}$")
-    plot_with_tail(ax2, cell.history_hot, max_len_err, color_cell_hoterr, r"Cell – error $\Delta T_{hot}$")
-    plot_with_tail(ax2, cell.history_cold, max_len_err, COLOR_CELL, r"Cell – error $\Delta T_{cold}$")
 
     ax2.axhline(0, color='black', linewidth=0.8, linestyle=':')
     ax2.set_title(f"Iteration Errors ({omega_text})")

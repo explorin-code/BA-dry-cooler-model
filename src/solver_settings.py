@@ -24,15 +24,14 @@ class SolverSettings:
     cell_omega: float              # Cell's own relaxation factor (see parameters.CELL_OMEGA)
     cell_n_segments: int           # number of coolant-direction segments per tube pass (Cell only)
     ntu_n_elements: int            # number of elements per tube per row (NTU only)
-    ntu_mode: str                  # 'field' or 'table' (see solvers.solve_it_NTU)
 
     # --- Convergence (all three solvers; per-solver overrides only as
-    # hardcoded constants in solvers.py, for tests) ---
+    # no per-solver overrides: the four hard-coded None constants of solvers.py were removed with the package split) ---
     convergence_threshold: float   # both outlet temperatures change < this per iteration [K]
     ntu_field_max_iter: int
     cell_max_iter: int
 
-    # --- Set from the run modes (CELL_2D / --cell-2d), not from parameters directly ---
+    # --- Set per solver variant by solvers.run_solver (cell_2d / cell_3d), not from parameters ---
     cell_2d: bool = False          # Cell: one representative tube instead of all
 
 
@@ -48,7 +47,6 @@ def get_solver_settings() -> SolverSettings:
         'cell_omega': 'CELL_OMEGA',
         'cell_n_segments': 'CELL_N_SEGMENTS',
         'ntu_n_elements': 'NTU_N_ELEMENTS',
-        'ntu_mode': 'NTU_MODE',
         'cell_max_iter': 'CELL_MAX_ITER',
         'ntu_field_max_iter': 'NTU_FIELD_MAX_ITER',
     })

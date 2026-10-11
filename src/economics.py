@@ -6,25 +6,26 @@ usage from precooling. Consumes already-solved OperatingConditions/
 FluidState/Geometry -- no solver/precooling internals.
 """
 
+from src.fluid_properties import get_air_properties
+
 
 def calc_pump_power(ops, coolant_state, Delta_p: float) -> float:
     """Coolant pump power consumption [W]."""
     eta_pump = 0.9  # reciprocating pump efficiency -- Towler, Chemical Engineering Design, 3rd ed., Sec. 20.7
-                 # (written with m_dot/rho instead of the volume flow rate -- same quantity)
     return (ops.m_dot_c * Delta_p) / (eta_pump * coolant_state.rho)  # W
     
 
-def calc_fan_power(ops, air_in, air_out, Delta_p: float, fan_position: str = 'forced') -> float:
-    """Fan power consumption [W]. fan_position decides which air state the
-    fan actually moves (sets the volume flow m_dot/rho):
+def calc_fan_power(ops, T_a_o: float, Delta_p: float, fan_position: str = 'forced') -> float:
+    """Fan power consumption [W] for the air-side pressure drop Delta_p [Pa] (pressure_drop.calc_delta_p_air); T_a_o:
+    bundle outlet air temperature. fan_position decides which air state the fan actually moves (sets the volume
+    flow m_dot/rho):
       'forced'  -- fan upstream of the bundle, pushes air at the bundle inlet state
       'induced' -- fan downstream of the bundle, pulls air at the bundle outlet state"""
     eta_fan = 0.7  # typical fan efficiency -- Towler, Chemical Engineering Design, 3rd ed., Sec. 19.16
-                 # (written with m_dot/rho instead of face velocity * face area -- same quantity)
     if fan_position == 'forced':
-        rho = air_in.rho
+        rho = get_air_properties(ops, ops.T_a_i, ops.p_a).rho
     elif fan_position == 'induced':
-        rho = air_out.rho
+        rho = get_air_properties(ops, T_a_o, ops.p_a).rho
     else:
         raise ValueError(f"fan_position must be 'forced' or 'induced', got {fan_position!r}")
     return (ops.m_dot_a * Delta_p) / (eta_fan * rho)  # W
