@@ -41,7 +41,7 @@ Solver-comparison settings live in `parameters.py` and can be overridden per run
 (`--outputs` with no value = summary only). `SOLVER_OUTPUTS` is the default selection (GUI: one multiselect). Outputs run in catalogue order and their
 results are in `results['outputs'][key]`.
 - `INSIGHT_MODE`: per-iteration progress and full result boxes in the terminal (logging at DEBUG). Without it only the per-scenario summary (Q, outlets, pinch,
-  deviation from Cell, iterations, wall time). Project code logs through `logging.getLogger(__name__)`, no `print` (except the standalone `validation_ntu.py`).
+  deviation from Cell, iterations, wall time). Project code logs through `logging.getLogger(__name__)`, no `print` (only a few standalone `__main__` helpers print).
 - `SOLVERS`: which of the five solvers run. The scenario results show one NTU and one Cell (`solvers.scenario_keys`: one solver per family; the variants give identical
   results and differ only in speed, which the benchmarks compare).
 

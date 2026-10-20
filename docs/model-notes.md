@@ -74,8 +74,9 @@ added, use it as Q = F k A dT_lm, not through Eqs. (25) / (26), which would turn
 
 **NTU** -- The element-wise method of Cabezas-Gómez, Navarro & Saiz-Jabardo (2006, J. Heat Transfer 129, 282-290) for the counter-cross-flow
 arrangement G^c_(n,1): `calc_element_effectiveness` (Eq. 1), `calc_element_outlets` (Eqs. 3-4), `solve_ntu_field`, `ntu_step`.
-- Validation: `python -m src.validation_ntu` runs the field solver against Table 1 Eqs. (9), (14)-(16) (1-4 passes, both C_min sides, max
-  error about 1e-5) and 102 points of Table 5 (5-10 passes, max error about 8e-5 = table rounding).
+- Check against the paper: during development the field solver was run against Table 1 Eqs. (9), (14)-(16) (1-4 passes, both C_min sides, max
+  error about 1e-5) and 102 points of Table 5 (5-10 passes, max error about 8e-5 = table rounding). The script is no longer part of the repository
+  (`git show 3b6e647:src/validation_ntu.py`).
 - Assumptions that are not from the paper: air passes row to row at the same tube / axial position without neighbour averaging
   (reproduces the closed forms); all tube circuits are identical, so one circuit is solved and broadcast to N_t. The paper assumes constant U and cp: k and cp
   are held constant within a field solve and updated between field solves at the mean temperatures, like LMTD (no local k as in Cell).

@@ -18,8 +18,7 @@ Reading order: `README.md`, this file, `docs/workflows.md` (how to run and what 
 
 ## Status
 
-- Solvers: LMTD, NTU (element field and precomputed table) and Cell (2D / 3D). The NTU element field reproduces the published tables of its source (`python -m src.validation_ntu`); the numbers of all solvers are pinned
-  in `tests/golden_solvers.json`. Nothing is validated against measurements of a real cooler.
+- Solvers: LMTD, NTU (element field and precomputed table) and Cell (2D / 3D). The numbers of all solvers are pinned in `tests/golden_solvers.json`. Nothing is validated against measurements of a real cooler.
 - Tests: `venv/bin/python -m pytest` runs every workflow and benchmark on a reduced problem (figures and CSVs go to a temporary folder) and pins what must not move silently: the tube counts 34 / 32 / 30, the
   independence of the geometry from the operating inputs, the fan and water numbers of the P2 27 °C case (386.66 W dry, 734.58 W and 10.8 g/s precooled), the solver numbers and the profiling counts.
   A changed pinned number is a model change and needs a decision. Run the tests after every refactoring step.

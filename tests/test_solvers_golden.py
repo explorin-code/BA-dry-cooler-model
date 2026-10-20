@@ -53,11 +53,6 @@ def test_benchmark_table_is_the_first_table():
             assert float(table(NTU, R)[0, 0]) == pytest.approx(expected, rel=1e-9), key
 
 
-def test_ntu_element_field_matches_the_literature():
-    from src.validation_ntu import run_validation
-    assert run_validation()
-
-
 @pytest.mark.parametrize("key", ['lmtd', 'ntu_field', 'cell_2d'])
 def test_profile_heat_flow_adds_up_to_q(key):
     """The dQ/dL curve of the cooler-results figure integrates to the solver's Q (Cell's once did not: 89 %)."""

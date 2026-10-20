@@ -22,7 +22,7 @@ def solve_ntu_field(N_r: int, n_elements: int, C_h_circuit: float, C_c_element: 
                     UA_element: float, T_c_i: float, T_a_i: float,
                     tol: float, max_iter: int, T_start=None):
     """Converged element field of ONE coolant circuit (all circuits are
-    identical). Plain numbers only, so validation_ntu.py runs this exact code.
+    identical). Plain numbers only (no geometry or operating-condition objects).
     Returns (T_c, T_a, Q_element, T_c_o, T_a_o, residuals);
     grids are [row, element] at the physical axial position.
     Assumption (not from the paper): air leaving element (r-1, e) enters
