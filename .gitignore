@@ -8,4 +8,4 @@ thesis_figures/out/
 output/
 raw_climate_data/
 defense/
-.claude/settings.local.json
+.claude/
