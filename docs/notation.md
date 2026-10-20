@@ -5,7 +5,8 @@
 - Temperatures: `T_<medium>_<state>` in °C (`T_c_i`, `T_a_o`, `T_K`,
   `T_a_pc`, grids `T_c_grid`/`T_a_grid`, `Delta_T_hot`/`Delta_T_cold`).
   theta / vartheta are not used in the code or the thesis equations; EXCEPTION: the normalised profile figures
-  (`profile_grid_normalised`, `profile_collapsed_normalised`) label their axis theta = (T - T_a,i)/(T_c,i - T_a,i); it is listed in the
+  (`profile_grid_normalised`, `profile_collapsed_normalised`) label their axis theta = (T - T_a,i)/(T_c,i - T_a,i); it
+  is listed in the
   thesis Notation chapter as 'normalised temperature (figures)'.
   Kelvin only where absolute temperatures are needed, marked `_K` /
   `T_kelvin` (`T_m_K`, `T_i_K` in `calc_w_e_m`). The Cabezas-Gomez element
@@ -50,16 +51,24 @@
 
 ## Decisions
 
-- Temperatures are T everywhere (°C unless absolute K is needed), no vartheta; the one exception is theta in the normalised profile figures.
-- Index i is inflow, except in `d_i` (inner diameter); the coolant-side quantities carry c (`alpha_c`, `A_c`). The cooler width is `b` (not B, which is Cabezas-Gómez's B in the NTU element functions).
-- Friction factors are all written f in the thesis (coolant f_c: Darcy 64/Re, Blasius, blend; air f_a: Wang, Fanning). The code's `psi` (Gnielinski / Konakov in `calc_Nu_c_turb`) and `f_c` / `f` in
+- Temperatures are T everywhere (°C unless absolute K is needed), no vartheta; the one exception is theta in the
+  normalised profile figures.
+- Index i is inflow, except in `d_i` (inner diameter); the coolant-side quantities carry c (`alpha_c`, `A_c`). The
+  cooler width is `b` (not B, which is Cabezas-Gómez's B in the NTU element functions).
+- Friction factors are all written f in the thesis (coolant f_c: Darcy 64/Re, Blasius, blend; air f_a: Wang, Fanning).
+  The code's `psi` (Gnielinski / Konakov in `calc_Nu_c_turb`) and `f_c` / `f` in
   `pressure_drop.py` are internal names.
 
 ## Figure labels aligned with the thesis Notation
-- Result boxes (`src/run_scenario.py`): `N_r`, `N_t`, `l x b` (was n_rows, n_tubes, H x W), `A_fr` (was A_front), `P_tot` (was P_total),
+- Result boxes (`src/run_scenario.py`): `N_r`, `N_t`, `l x b` (was n_rows, n_tubes, H x W), `A_fr` (was A_front),
+  `P_tot` (was P_total),
   `m_dot_ev` (was m_dot_water; also `ui/results.py`, `comparison/plots_common.LABEL`).
-- Heat-flow profiles: `d Q_dot / d l` and `Q_dot / l_tot` (was dQ/dL, Q/L; `L` is the service life in the cost equations).
-- Cost model symbols of the appendix (thesis `Appendix.tex`): C (annual cost), c (price), E (energy), m (mass), V (volume), L (service life),
+- Heat-flow profiles: `d Q_dot / d l` and `Q_dot / l_tot` (was dQ/dL, Q/L; `L` is the service life in the cost
+  equations).
+- Cost model symbols of the appendix (thesis `Appendix.tex`): C (annual cost), c (price), E (energy), m (mass), V
+  (volume), L (service life),
   t (time), summation index j (not h = enthalpy); indices amb, pad, pinch, Al, Cu.
-- Thesis symbols that exist only there (not in the code): beta_Y (mass-transfer coefficient), gamma (laminar/turbulent blend), F_1..F_3 (Wang
-  exponents), C* (heat capacity ratio), Me (Merkel number), z (tower height coordinate), primes ' / '' (thermodynamic / saturated state).
+- Thesis symbols that exist only there (not in the code): beta_Y (mass-transfer coefficient), gamma (laminar/turbulent
+  blend), F_1..F_3 (Wang
+  exponents), C* (heat capacity ratio), Me (Merkel number), z (tower height coordinate), primes ' / '' (thermodynamic /
+  saturated state).
