@@ -1,7 +1,7 @@
 """The solvers' numbers, pinned: Q, both outlet temperatures, k and the iteration count of each of the five solvers at
 a design, a hot and the coldest operating point of the P2 cooler, plus values of the NTU table (tests/golden_solvers.json,
-recorded from the code before solvers.py became a package -- the split reproduced them bit for bit), and the literature
-validation of the NTU element field (Cabezas-Gomez et al. 2007, Tables 1 and 5). A change here is a change of the model."""
+recorded from the code before solvers.py became a package -- the split reproduced them bit for bit), and the checks that the
+profiles add up to Q. A change here is a change of the model."""
 
 import json
 from pathlib import Path
