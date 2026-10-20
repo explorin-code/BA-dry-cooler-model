@@ -5,11 +5,12 @@ CoolProp>=8.0.0      # fluid and humid-air properties
 numpy>=2.5.3
 scipy>=1.18.1        # NTU table mode (bicubic interpolation of P(NTU, R)), annual benchmark
 matplotlib>=3.11.2   # all figures
-seaborn>=0.13.2      # convergence figure style (run_scenario.py)
+seaborn>=0.13.2      # figure styles (src/plot_style.py)
 
 # GUI only (streamlit run gui.py)
 streamlit>=1.65.0
 pandas>=3.0.6
 
-# Tests (pytest; run from the repo root)
+# Tests (pytest; run from the repo root); pyflakes for linting
 pytest>=8.0
+pyflakes>=3.0

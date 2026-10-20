@@ -39,20 +39,20 @@ from src.run_modes import get_run_modes
 logger = logging.getLogger(__name__)
 
 
-def _log_scenario_summary(label, result, ops, geo, P_pump, P_fan, m_dot_ev=None):
+def _log_scenario_summary(label, result, ops, geo, P_pump, P_fan, T_amb, m_dot_ev=None):
     """Always (INFO): one line per solver -- Q, outlet temperatures, pinch, deviation from the reference
     (most detailed) solver, iterations, wall time -- plus power/water.
+    T_amb: the AMBIENT air temperature (the pinch is that of the whole cooler, also in the precooled scenario).
     Insight mode (DEBUG): additionally the full input/result text boxes of
     the results figure, so nothing is lost without plots."""
     ref_key, ref = result.reference_key, result.reference
     ref_label = SOLVER_FAMILY[ref_key]
-    pinch_ref = calc_pinch(ref.T_c_o, ops.T_a_i)
     logger.info("[%s]", label)
     for key, r in result.results.items():
-        pinch = calc_pinch(r.T_c_o, ops.T_a_i)
+        pinch = calc_pinch(r.T_c_o, T_amb)
         vs_ref = ("" if key == ref_key else
                   f"  (vs. {ref_label}: Q {calc_deviation(r.Q_dot, ref.Q_dot):+5.2f} %, "
-                  f"pinch {calc_deviation(pinch, pinch_ref):+5.2f} %)")
+                  f"pinch {r.T_c_o - ref.T_c_o:+5.2f} K)")
         logger.info("  %-11s Q = %6.2f kW   T_coolant_out = %5.2f °C   T_air_out = %5.2f °C   "
                     "pinch = %5.2f K   k = %5.2f W/m²K   %3d it   %8.1f ms%s",
                     SOLVER_FAMILY[key], r.Q_dot / 1000, r.T_c_o, r.T_a_o, pinch, r.k,
@@ -61,7 +61,7 @@ def _log_scenario_summary(label, result, ops, geo, P_pump, P_fan, m_dot_ev=None)
 
     logger.debug("\n%s\n%s", format_input_conditions(ops), format_geometry_info(geo))
     for key, r in result.results.items():
-        logger.debug("\n%s", format_output_conditions(SOLVER_FAMILY[key], r, ops.T_a_i,
+        logger.debug("\n%s", format_output_conditions(SOLVER_FAMILY[key], r, T_amb,
                                                        reference=None if key == ref_key else ref,
                                                        reference_label=ref_label))
 
@@ -93,7 +93,7 @@ def run_scenarios(modes=None):
     P_fan_ambient = calc_fan_power(ops_ambient, T_a_o, calc_delta_p_air(geo, ops_ambient, T_a_o, parameters.PAD_IN_DRY_AIR_PATH))
 
     label_ambient = "Dry"
-    _log_scenario_summary(label_ambient, result_ambient, ops_ambient, geo, P_pump, P_fan_ambient)
+    _log_scenario_summary(label_ambient, result_ambient, ops_ambient, geo, P_pump, P_fan_ambient, ops_ambient.T_a_i)
 
     results = {'geo': geo, 'ambient': {'label': label_ambient, 'ops': ops_ambient, 'result': result_ambient,
                                        'P_pump': P_pump, 'P_fan': P_fan_ambient, 'm_dot_ev': None},
@@ -108,7 +108,7 @@ def run_scenarios(modes=None):
         T_a_o = result_final.reference.T_a_o
         P_fan_final = calc_fan_power(ops_final, T_a_o, calc_delta_p_air(geo, ops_final, T_a_o, through_pad=True))
 
-        _log_scenario_summary("Precooled", result_final, ops_final, geo, P_pump, P_fan_final, m_dot_ev)
+        _log_scenario_summary("Precooled", result_final, ops_final, geo, P_pump, P_fan_final, ops_ambient.T_a_i, m_dot_ev)
         results['precooled'] = {'label': "Precooled", 'ops': ops_final, 'result': result_final,
                                 'P_pump': P_pump, 'P_fan': P_fan_final, 'm_dot_ev': m_dot_ev}
 

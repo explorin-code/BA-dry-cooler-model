@@ -10,9 +10,8 @@ sources; the module around it (tubes per row, tube length, rows) is chosen by th
   * cooler comparisons size every cell to the same water flow and race them against each other
     (comparison/).
 
-Source of the values: "Project-Source Geometry Audit for Plain Plate-Fin Dry-Cooler Cases" (Perplexity
-report, 2026-10-09) -- NOT re-read in the original PDFs. What the sources do not give is an ASSUMPTION
-and marked as such in `notes`: tube wall (0.5 mm; P3 1 mm), collar thickness (= fin thickness: the collar is
+Sources: P1 Wang & Chi (2000), sample 2; P2 Kayansayan (1994), coil 5; P3 Kayansayan (1994), coil 3. What the
+sources do not give is an ASSUMPTION and marked as such in `notes`: tube wall (0.5 mm; P3 1 mm), collar thickness (= fin thickness: the collar is
 the fin sheet turned up around the tube), materials of P1.
 
 P1: the diameter listed by Wang & Chi is the OUTER DIAMETER OVER THE COLLAR (Wang's D_c), so the tube's own outer diameter
@@ -54,7 +53,7 @@ def _tube_od(listed_mm: float, delta_c_mm: float) -> float:
 
 # N_t_ref: the tube count a single-cooler (solver comparison) run uses by default, FIXED so the geometry does not change with the
 # operating inputs (coolant temperature, flow, ...): the smallest count that brings 1 kg/s water of 37 degC to 25 degC at 20 degC / 60 %,
-# dry, 3 m/s, 6 rows, 2 m tubes (comparison.sizing.design_tubes, 2026-10; the cooler comparison itself re-sizes live).
+# dry, 3 m/s, 6 rows, 2 m tubes (comparison.sizing.design_tubes; the cooler comparison itself re-sizes live).
 CELL_SETS = {
     'P1': CellSet(
         'P1', "P1 dense (Wang sample 2)", "Wang & Chi (2000), Part I, Table 2, sample 2",

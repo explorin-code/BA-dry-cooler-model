@@ -8,14 +8,10 @@ the convergence panels used by the convergence figure
 (plot_solver.plot_convergence). Pure display -- no solving.
 """
 
-import seaborn as sns
-
 from src.solvers import SOLVER_FAMILY, ScenarioResult
 from src.operating_conditions import OperatingConditions
 from src.economics import calc_total_power
 from src.plot_style import family_color, lighten_color
-
-sns.set_theme(style="whitegrid", context="talk")
 
 
 def plot_with_tail(ax, series, max_len, color, label, linewidth=2.2, marker='o', markersize=3):
@@ -62,10 +58,11 @@ def format_geometry_info(geo) -> str:
     )
 
 
-def calc_pinch(T_c_o: float, T_a_i: float) -> float:
-    """Cold-end temperature approach (pinch point) of the counterflow
-    arrangement: coolant outlet vs. air inlet [K]."""
-    return T_c_o - T_a_i
+def calc_pinch(T_c_o: float, T_amb: float) -> float:
+    """Pinch point of the WHOLE cooler: coolant outlet minus the AMBIENT air that enters it [K]. With the precooling pad the
+    air entering the coil is colder than the ambient; the pad is part of the cooler, so the pinch is not taken against that
+    colder air (it can become negative: the pad cools the water below the dry-bulb temperature of the ambient)."""
+    return T_c_o - T_amb
 
 
 def calc_deviation(value: float, reference: float) -> float:
@@ -76,8 +73,7 @@ def calc_deviation(value: float, reference: float) -> float:
 def format_output_conditions(label: str, result, T_a_i: float, reference=None, reference_label: str = "Cell") -> str:
     """Terminal text: outlet temperatures, pinch and Q; for LMTD/NTU
     (reference = the reference SolverResult) their deviation from Cell; then
-    final-iteration Pr/Re/Nu for both sides. The figure uses
-    output_condition_cells() instead (subscripts, aligned columns)."""
+    final-iteration Pr/Re/Nu for both sides. The figure uses output_condition_cells() instead (subscripts, aligned columns)."""
     diagnostics = result.diagnostics
     pinch = calc_pinch(result.T_c_o, T_a_i)
     T_co, T_ao, dT_pinch = "T_c,o", "T_a,o", "ΔT_pinch"
@@ -89,9 +85,8 @@ def format_output_conditions(label: str, result, T_a_i: float, reference=None, r
         f"{dT_pinch} = {pinch:5.2f} K   Q = {result.Q_dot/1000:6.2f} kW",
     ]
     if reference is not None:
-        pinch_ref = calc_pinch(reference.T_c_o, T_a_i)
         lines.append(f"vs. {reference_label}:   Q {calc_deviation(result.Q_dot, reference.Q_dot):+5.2f} %   "
-                     f"{dT_pinch} {calc_deviation(pinch, pinch_ref):+5.2f} %")
+                     f"{dT_pinch} {result.T_c_o - reference.T_c_o:+5.2f} K")
     lines += [
         "",
         f"Coolant:  Pr = {diagnostics['Pr_c']:6.3f}   "
@@ -123,9 +118,9 @@ def input_condition_cells(ops: OperatingConditions, geo) -> list:
          r"$\dot{V}$ =", f"{ops.V_dot_a:8.5f} m³/s"],
     ]
     geometry = [
-        ["Geometry:", r"$n_{rows}$ =", f"{geo.N_r:d}", r"$n_{tubes}$ =", f"{geo.N_t:d}",
-         r"$H \times W$ =", f"{geo.l:.3f} m × {geo.b:.3f} m",
-         r"$A_{front}$ =", f"{geo.A_fr:.4f} m²"],
+        ["Geometry:", r"$N_{r}$ =", f"{geo.N_r:d}", r"$N_{t}$ =", f"{geo.N_t:d}",
+         r"$l \times b$ =", f"{geo.l:.3f} m × {geo.b:.3f} m",
+         r"$A_{fr}$ =", f"{geo.A_fr:.4f} m²"],
     ]
     return [media, geometry]
 
@@ -136,14 +131,14 @@ def economics_cells(P_pump, P_fan, m_dot_ev) -> list:
     P_total = calc_total_power(P_pump, P_fan)
     fmt_w = lambda v: f"{v:7.2f} W" if v is not None else "n/a"
     return [[["Economics:", r"$P_{pump}$ =", fmt_w(P_pump), r"$P_{fan}$ =", fmt_w(P_fan),
-              r"$P_{total}$ =", fmt_w(P_total), r"$\dot{m}_{water}$ =",
+              r"$P_{tot}$ =", fmt_w(P_total), r"$\dot{m}_{ev}$ =",
               f"{m_dot_ev * 1000:6.3f} g/s" if m_dot_ev is not None else "n/a"]]]
 
 
-def output_condition_cells(label: str, result, T_a_i: float, reference=None, reference_label: str = "Cell") -> list:
-    """Blocks for one solver's result box: outlets/pinch/Q, for LMTD/NTU the
-    deviation from Cell directly below the pinch and Q values, an empty
-    line, then Pr/Re/Nu/alpha for both sides (own aligned columns)."""
+def output_condition_cells(label: str, result, T_a_i: float, reference=None, reference_label: str = "Cell",
+                           with_numbers: bool = True) -> list:
+    """Blocks for one solver's result box: outlets/pinch/Q, below them (when a reference result is given) the deviation
+    from it -- pinch in K, Q in % -- and, with_numbers, an empty line and Pr/Re/Nu/alpha for both sides."""
     d = result.diagnostics
     pinch = calc_pinch(result.T_c_o, T_a_i)
     outputs = [
@@ -152,16 +147,17 @@ def output_condition_cells(label: str, result, T_a_i: float, reference=None, ref
          f"{result.Q_dot / 1000:6.2f} kW"],
     ]
     if reference is not None:
-        pinch_ref = calc_pinch(reference.T_c_o, T_a_i)
-        outputs.append([f"vs. {reference_label}:", "", "", "", "", "", f"{calc_deviation(pinch, pinch_ref):+5.2f} %",
+        outputs.append([f"vs. {reference_label}:", "", "", "", "", "", f"{result.T_c_o - reference.T_c_o:+5.2f} K",
                         "", f"{calc_deviation(result.Q_dot, reference.Q_dot):+6.2f} %"])
-    numbers = [
-        ["Coolant:", r"$Pr$ =", f"{d['Pr_c']:6.3f}", r"$Re$ =", f"{d['Re_c']:7.1f}",
-         r"$Nu$ =", f"{d['Nu_c']:6.2f}", r"$\alpha_c$ =", f"{d['alpha_c']:7.1f} W/m²K"],
-        ["Air:", r"$Pr$ =", f"{d['Pr_a']:6.3f}", r"$Re$ =", f"{d['Re_a']:7.1f}",
-         r"$Nu$ =", f"{d['Nu_a']:6.2f}", r"$\alpha_a$ =", f"{d['alpha_a']:7.1f} W/m²K"],
-    ]
-    return [[f"{label} — Results"], outputs, [""], numbers]
+    blocks = [[f"{label} — Results"], outputs]
+    if with_numbers:
+        blocks += [[""], [
+            ["Coolant:", r"$Pr$ =", f"{d['Pr_c']:6.3f}", r"$Re$ =", f"{d['Re_c']:7.1f}",
+             r"$Nu$ =", f"{d['Nu_c']:6.2f}", r"$\alpha_c$ =", f"{d['alpha_c']:7.1f} W/m²K"],
+            ["Air:", r"$Pr$ =", f"{d['Pr_a']:6.3f}", r"$Re$ =", f"{d['Re_a']:7.1f}",
+             r"$Nu$ =", f"{d['Nu_a']:6.2f}", r"$\alpha_a$ =", f"{d['alpha_a']:7.1f} W/m²K"],
+        ]]
+    return blocks
 
 
 def format_economics(P_pump, P_fan, m_dot_ev) -> str:

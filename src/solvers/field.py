@@ -109,7 +109,7 @@ def sweep_two_way(T_c, T_a, element, T_c_i, T_a_i, path, omega=1.0):
               and the coolant from pass 1.
     Converges to the same field as sweep_coolant_direction (same element
     relation and connections) in fewer iterations: ~2x at 6 rows, ~3.5x at
-    24 (see docs/review-needed.md), but evaluates every element twice per iteration.
+    24 (see docs/model-notes.md), but evaluates every element twice per iteration.
     Updates T_c/T_a in place (relaxed with omega) and returns the largest
     raw change (coolant, air) [K]."""
     T_c_old, T_a_old = T_c.copy(), T_a.copy()

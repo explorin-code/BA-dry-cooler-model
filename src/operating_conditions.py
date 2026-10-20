@@ -120,3 +120,12 @@ def get_operating_conditions(geo=None, **overrides) -> OperatingConditions:
         'phi': ('PHI_AIR_PERCENT', PERCENT),
         'Y': 'Y_AIR',
     }, geo=geo, **overrides)
+
+
+def ops_like(geo, ops, **changes) -> OperatingConditions:
+    """The operating point `ops` with some inputs replaced, e.g. ops_like(geo, ops, T_c_i=90.0, w_fr=2.0). Water is
+    given as mass flow, air as face velocity; everything else is carried over, the derived flows are recomputed against
+    `geo`."""
+    base = dict(T_c_i=ops.T_c_i, T_a_i=ops.T_a_i, phi=ops.phi, p_a=ops.p_a, p_c=ops.p_c, coolant_type=ops.coolant_type,
+                w_c=0.0, m_dot_c=ops.m_dot_c, V_dot_c=0.0, w_fr=ops.w_fr, m_dot_a=0.0, V_dot_a=0.0)
+    return get_operating_conditions(geo, **{**base, **changes})

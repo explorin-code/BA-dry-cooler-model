@@ -16,8 +16,10 @@ from src.solvers.ntu_field import solve_ntu_field
 
 logger = logging.getLogger(__name__)
 
-NTU_TABLE_VERSION = 1                         # bump when the element field changes -> tables rebuilt
-NTU_TABLE_NTU = np.geomspace(0.05, 6.0, 48)   # NTU_a = kA/C_a grid, denser at small NTU (curvature)
+NTU_TABLE_VERSION = 2                         # bump when the element field changes -> tables rebuilt
+NTU_TABLE_NTU = np.geomspace(0.05, 60.0, 64)  # NTU_a = kA/C_a grid, denser at small NTU (curvature); the top covers the slow fan of the adaptive control
+NTU_TABLE_NTU_BENCHMARK = np.geomspace(0.05, 6.0, 48)   # the range of the first table (NTU_a <= 6): the SOLVER BENCHMARKS build their tables over this one, so their
+                                              # build times stay those reported in the thesis (a build over NTU_TABLE_NTU costs ~3x as much; the lookups do not differ)
 NTU_TABLE_R_PER_ELEMENT = 0.1                 # Eq. (1) validity: R / N_e <= 0.1 -> R grid reaches 0.1 N_e
 NTU_TABLE_R_DENSITY = 20                      # R grid points per unit R (40 points up to R = 2 at N_e = 20)
 NTU_TABLE_TOL = 1e-8                          # field tolerance per table point (dimensionless, dT_max = 1)
@@ -33,16 +35,16 @@ def ntu_table_R(n_elements: int) -> np.ndarray:
     return np.linspace(0.05, R_max, round(NTU_TABLE_R_DENSITY * R_max))
 
 
-def build_ntu_table(N_r: int, n_elements: int) -> np.ndarray:
-    """P(NTU_a, R) on the NTU_TABLE_NTU x ntu_table_R(n_elements) grid: one dimensionless
+def build_ntu_table(N_r: int, n_elements: int, axis: np.ndarray = NTU_TABLE_NTU) -> np.ndarray:
+    """P(NTU_a, R) on the `axis` (default NTU_TABLE_NTU) x ntu_table_R(n_elements) grid: one dimensionless
     field solve per point (C_a = 1, C_c = 1/R, kA = NTU_a, T_c,i = 1,
     T_a,i = 0, so P = T_a,o) -- the paper's procedure, Fig. 2(a). Each point
     warm-starts from its neighbour in R."""
     R_axis = ntu_table_R(n_elements)
-    P = np.empty((len(NTU_TABLE_NTU), len(R_axis)))
+    P = np.empty((len(axis), len(R_axis)))
     with warnings.catch_warnings():
         warnings.simplefilter('ignore')                        # element-size warning at large R
-        for i, NTU_a in enumerate(NTU_TABLE_NTU):
+        for i, NTU_a in enumerate(axis):
             start = None
             for j, R in enumerate(R_axis):
                 T_c, T_a, _, _, P[i, j], _ = solve_ntu_field(
@@ -73,10 +75,10 @@ def get_ntu_table(N_r: int, n_elements: int):
     return tables[key]
 
 
-def install_table(N_r: int, n_elements: int, P: np.ndarray):
-    """Puts a table (as built by build_ntu_table) into the in-memory tables of this run (benchmarks, which build their own)."""
+def install_table(N_r: int, n_elements: int, P: np.ndarray, axis: np.ndarray = NTU_TABLE_NTU):
+    """Puts a table (as built by build_ntu_table over the same `axis`) into the in-memory tables of this run (benchmarks, which build their own)."""
     from scipy.interpolate import RectBivariateSpline
-    tables[(N_r, n_elements)] = RectBivariateSpline(NTU_TABLE_NTU, ntu_table_R(n_elements), P, kx=3, ky=3)
+    tables[(N_r, n_elements)] = RectBivariateSpline(axis, ntu_table_R(n_elements), P, kx=3, ky=3)
 
 
 def ntu_table_step(k, coolant_state, air_state, geo, ops, table, field_step):

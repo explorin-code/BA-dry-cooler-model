@@ -38,7 +38,7 @@ run, the colour bar only says cold / hot.
 Standalone -- nothing in the model imports this file:
     python -m thesis_figures.chapter3_schematics [--format png] [--out folder]
                                                  [--rows N] [--segments N]
-Writes every accepted version into thesis_figures/out/ (default).
+Writes every accepted version into thesis_figures/out/ch3_methodology/ (default).
 """
 
 import argparse
@@ -928,7 +928,7 @@ if __name__ == "__main__":
     parser.add_argument("--segments", type=int, default=None,
                         help="segments / elements per pass (default: CELL_N_SEGMENTS / NTU_N_ELEMENTS)")
     parser.add_argument("--rows", type=int, default=None, help="tube rows for this rendering (default: N_ROWS)")
-    parser.add_argument("--out", default=str(Path(__file__).parent / "out"), help="output folder")
+    parser.add_argument("--out", default=str(Path(__file__).parent / "out" / "ch3_methodology"), help="output folder")
     parser.add_argument("--format", default="pdf", help="file format, e.g. pdf, png, svg")
     args = parser.parse_args()
     for written in render_all(Path(args.out), args.format, args.solver, args.segments, args.rows):

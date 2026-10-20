@@ -47,8 +47,8 @@ def calc_Re_a(d: float, w_e_m: float, rho_a: float, mu_a: float) -> float:
 # -----------------------------------------------------------------------
 # Source: VDI Wärmeatlas, Chapter M1, §4, Gl. (16) [staggered, n>=4 rows,
 # C=0.38] and Gl. (18) [staggered, n=1-3 rows: C=0.33 for n=2, C=0.36 for
-# n=3]. Confirmed 2026-08 against the 12th ed. -- the row-count prefactor
-# is the book's own C (here C_r), not an invented correction.
+# n=3] (12th ed.). The row-count prefactor is the book's own C (here C_r),
+# not an added correction.
 # Book's stated validity range: 10^3 < Re_d < 10^5, 5 <= A/A_p0 <= 30
 # (not currently enforced/warned on here).
 # -----------------------------------------------------------------------
@@ -131,8 +131,7 @@ def calc_alpha_a_eff(alpha_a: float, eta_f: float, A: float, A_f: float) -> floa
 # -----------------------------------------------------------------------
 # Source: VDI Wärmeatlas, Chapter G1, §4.1, Gl. (26); friction factor psi
 # from Gl. (27) ("Hanakov" relation, per the book's own attribution).
-# Confirmed 2026-08 against the 12th ed. -- exact match, entrance-length
-# term included.
+# (12th ed.), entrance-length term included.
 # -----------------------------------------------------------------------
 def calc_Nu_c_turb(Re: float, Pr: float, d_i: float, l: float) -> float:
     psi = (1.8 * log10(Re) - 1.5)**(-2)
@@ -141,8 +140,7 @@ def calc_Nu_c_turb(Re: float, Pr: float, d_i: float, l: float) -> float:
 
 # -----------------------------------------------------------------------
 # Source: VDI Wärmeatlas, Chapter G1, §3.2.2, Gl. (25); components
-# Gl. (17) [Nu_mq1=4.364], Gl. (18) [Nu_mq2], Gl. (24) [Nu_mq3]. Confirmed
-# 2026-08 against the 12th ed. -- this is the CONSTANT-HEAT-FLUX boundary
+# Gl. (17) [Nu_mq1=4.364], Gl. (18) [Nu_mq2], Gl. (24) [Nu_mq3] (12th ed.). This is the CONSTANT-HEAT-FLUX boundary
 # condition ("konstante Wärmestromdichte"), not the constant-wall-temperature
 # variant (which uses 0.7/Nu1=3.66 instead of this formula's 0.6/4.364) --
 # the two look superficially similar but are genuinely different formulas.

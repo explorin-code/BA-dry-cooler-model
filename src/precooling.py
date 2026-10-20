@@ -51,15 +51,12 @@ def calc_h(T, P, phi):
     """Moist-air enthalpy per kg DRY air [J/kg dry air] (VDI's h_1+X, the
     basis of M8 Gl. (15), whose denominator Y_i - Y_K is also per kg dry
     air). Source: CoolProp HAPropsSI (Bell et al. 2014), key 'Hda'.
-    Fixed 2026-10: was 'Hha' (per kg humid air), which put T_K ~0.05 K too
-    high (20 °C / 30 %: 10.89 instead of 10.84 °C = CoolProp's own
-    thermodynamic wet-bulb temperature)."""
+    20 °C / 30 %: T_K = 10.84 °C, CoolProp's own thermodynamic wet-bulb temperature."""
     return CP.HAPropsSI('Hda', 'T', T + 273.15, 'P', P, 'R', phi)
 
-# Source: VDI Wärmeatlas, Chapter M8, §2.2, Gl. (15), p.1778 -- confirmed
-# 2026-08 against the 12th ed., exact match (residual below is literally
+# Source: VDI Wärmeatlas, Chapter M8, §2.2, Gl. (15), p.1778 (12th ed.): the residual below is literally
 # (h_LE-h_LK)/(Y_i-Y_K) - c_W*T_K = 0, i.e. Gl.(15) root-found via
-# brentq). The formula assumes a Lewis factor of 1 (book's Gl. 14,
+# brentq. The formula assumes a Lewis factor of 1 (book's Gl. 14,
 # alpha/(beta_Y*c_p(1+Y)) = 1) -- not separately checked here, inherited
 # from the book's own stated prerequisite for Gl.(15)/(13) to hold.
 def calc_cooling_limit(ops):
@@ -101,8 +98,8 @@ def calc_precooled_ops(ops, geo=None):
     Y_i = ops.Y
     Y_K = calc_Y(T_K, ops.p_a, 1.0)
 
-    # Source: VDI Wärmeatlas, Chapter M8, §2.2, Gl. (13), p.1778 --
-    # confirmed 2026-08 against the 12th ed. Gl.(13) states
+    # Source: VDI Wärmeatlas, Chapter M8, §2.2, Gl. (13), p.1778 (12th ed.):
+    # Gl.(13) states
     # eta_B = (Y_pc-Y_i)/(Y_K-Y_i) ~= (T_a_i-T_a_pc)/(T_a_i-T_K);
     # both lines below are that same equation solved for Y_pc and
     # T_a_pc respectively.

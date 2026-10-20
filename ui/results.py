@@ -26,14 +26,14 @@ def summary_table(results):
         for key, r in sc["result"].results.items():
             rows.append({"Scenario": sc["label"], "Solver": SOLVER_FAMILY[key],
                          r"$\dot{Q}$ [kW]": r.Q_dot / 1000, r"$T_{c,o}$ [°C]": r.T_c_o, r"$T_{a,o}$ [°C]": r.T_a_o,
-                         r"$\Delta T_{pinch}$ [K]": r.T_c_o - sc["ops"].T_a_i, r"$k$ [W/m²K]": r.k,
+                         r"$\Delta T_{pinch}$ [K]": r.T_c_o - results["ambient"]["ops"].T_a_i, r"$k$ [W/m²K]": r.k,
                          "Iterations": len(r.history_hot), "Time [ms]": round((r.solve_time or 0) * 1e3, 1)})
     return pd.DataFrame(rows)
 
 
 def economics_table(results):
     rows = [{"Scenario": sc["label"], r"$P_{pump}$ [W]": sc["P_pump"], r"$P_{fan}$ [W]": sc["P_fan"],
-             r"$\dot{m}_{water}$ [g/s]": None if sc["m_dot_ev"] is None else sc["m_dot_ev"] * 1000}
+             r"$\dot{m}_{ev}$ [g/s]": None if sc["m_dot_ev"] is None else sc["m_dot_ev"] * 1000}
             for sc in (results.get(k) for k in ("ambient", "precooled")) if sc]
     return pd.DataFrame(rows)
 

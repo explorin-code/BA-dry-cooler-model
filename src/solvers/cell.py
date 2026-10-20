@@ -90,22 +90,23 @@ def _relax_cell_grid(T_c, T_a, omega, Delta_T_hot, Delta_T_cold,
 
 
 def _cell_local_grids(T_c, T_a, ops, geo, n_segments):
-    """k, dQ/dL and Re/Nu per cell on the converged grids (same local states
-    as during the iteration). dQ = k dA dT: Baehr, Thermodynamik (2016), Sec. 3.1."""
+    """k, dQ/dL and Re/Nu per cell on the converged grids (same local states as during the iteration). dQ/dL is the
+    coolant's energy balance over the cell (as in NTU's Q_element): the cell's outlet temperatures are not its mean
+    temperatures, so k dA (T_c - T_a) would not add up to Q."""
     shape = T_c.shape
     k_grid, dQdL_grid = np.zeros(shape), np.zeros(shape)
     local = {key: np.zeros(shape) for key in ('Re_a', 'Nu_a', 'Re_c', 'Nu_c')}
-    A_cell = geo.A / n_segments
     dL_cell = geo.l / n_segments
+    m_dot_c_tube = ops.m_dot_c / geo.N_t
 
     for r in range(geo.N_r):
         for t in range(shape[1]):
             for s in range(n_segments):
-                T_a_m, props_c, props_a = _cell_local_states(
-                    coolant_inlet(r, t, s, T_c, ops.T_c_i), air_inlet(r, t, s, T_a, ops.T_a_i),
-                    T_c[r, t, s], T_a[r, t, s], ops)
+                T_c_in = coolant_inlet(r, t, s, T_c, ops.T_c_i)
+                T_a_m, props_c, props_a = _cell_local_states(T_c_in, air_inlet(r, t, s, T_a, ops.T_a_i),
+                                                             T_c[r, t, s], T_a[r, t, s], ops)
                 k_grid[r, t, s] = calc_overall_k(geo, ops, props_c, props_a, T_a_m)
-                dQdL_grid[r, t, s] = k_grid[r, t, s] * A_cell * (T_c[r, t, s] - T_a[r, t, s]) / dL_cell
+                dQdL_grid[r, t, s] = m_dot_c_tube * props_c.cp * (T_c_in - T_c[r, t, s]) / dL_cell
                 diag = calc_diagnostics(geo, ops, props_c, props_a, T_a_m)
                 for key in local:
                     local[key][r, t, s] = diag[key]
@@ -115,7 +116,7 @@ def _cell_local_grids(T_c, T_a, ops, geo, n_segments):
 def solve_it_cell(n_segments: int = None, omega: float = None, ops=None, geo=None, settings=None):
     """omega: per-cell relaxation (default settings.cell_omega = 1.0; with
     omega < 1 the change-per-iteration criterion fires before convergence --
-    see docs/review-needed.md). n_segments per tube and row (default settings.cell_n_segments)."""
+    see docs/model-notes.md). n_segments per tube and row (default settings.cell_n_segments)."""
     ops, geo, settings = fill_defaults(ops, geo, settings)
     if omega is None:
         omega = settings.cell_omega
@@ -125,8 +126,8 @@ def solve_it_cell(n_segments: int = None, omega: float = None, ops=None, geo=Non
     m_dot_c_tube = ops.m_dot_c / geo.N_t                       # per tube, also in 2D
     m_dot_a_cell = ops.m_dot_a / (geo.N_t * n_segments)
     n_tubes = 1 if settings.cell_2d else geo.N_t
-    T_c = np.full((geo.N_r, n_tubes, n_segments), ops.T_c_i)
-    T_a = np.full((geo.N_r, n_tubes, n_segments), ops.T_a_i)
+    T_c = np.full((geo.N_r, n_tubes, n_segments), float(ops.T_c_i))
+    T_a = np.full((geo.N_r, n_tubes, n_segments), float(ops.T_a_i))     # float: whole-number inputs must not make an integer grid
 
     (T_c, T_a, T_c_o, T_a_o,
      history_hot, history_cold, history_T_c_o, history_T_a_o) = _relax_cell_grid(

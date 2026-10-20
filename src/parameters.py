@@ -18,19 +18,19 @@ Inline comments become the help texts. Leave a value as None to fall back to tha
 # =====================================================================================================
 
 # --- Coolant [both]: temperatures [°C] -------------------------------------
-T_COOLANT_IN = 37.0             # hot coolant entering -- Konrad: 37 °C
-T_COOLANT_TARGET_OUT = 25.0     # target coolant outlet -- Konrad's target; precool / speed up the fan if exceeded
+T_COOLANT_IN = 37.0             # hot coolant entering
+T_COOLANT_TARGET_OUT = 25.0     # target coolant outlet; precool / speed up the fan if exceeded
 
 # --- Precooling [both]: dry-operation air path ----------------------------
 PAD_IN_DRY_AIR_PATH = False     # dry operation: True = the air passes the dry pad (its pressure drop counts), False = bypass
 
 # --- Prices [compare]: operating cost ---------------------------------------
-ELECTRICITY_EUR_PER_KWH = 0.30  # electricity [EUR/kWh]
+ELECTRICITY_EUR_PER_KWH = 0.2726  # electricity [EUR/kWh] net: SWM M-Strom single tariff from 15 Sep 2026 (basic charge not included)
 WATER_EUR_PER_M3 = 1.84         # Munich drinking water, net, from 2026-07-01 incl. "Wassercent"
                                  # (SWM press release 3.6.2026); 1.97 incl. 7 % VAT
 WASTEWATER_EUR_PER_M3 = 0.0     # evaporated pad water normally does not reach the sewer; if charged, ~2 EUR/m3
-COPPER_EUR_PER_KG = 12.4        # raw metal, LME Oct 2026, no fabrication premium [EUR/kg]
-ALUMINIUM_EUR_PER_KG = 2.7      # raw metal, LME Oct 2026, no fabrication premium [EUR/kg]
+COPPER_EUR_PER_KG = 13.10465    # copper [EUR/kg]: LME cash 9 Oct 2026 14,689 USD/t at 1.1209 USD/EUR (Westmetall); raw metal, no fabrication premium
+ALUMINIUM_EUR_PER_KG = 2.72593  # aluminium [EUR/kg]: LME cash 9 Oct 2026 3,055.5 USD/t at 1.1209 USD/EUR (Westmetall); raw metal
 LIFETIME_YEARS = 20             # service life of the straight-line material write-off [years]
 
 # =====================================================================================================
@@ -42,7 +42,7 @@ T_AIR_IN = 20.0                 # cold air entering
 
 # --- Operating conditions [solver]: coolant flow -- exactly one nonzero --
 W_COOLANT = 0.0                 # velocity inside tubes         [m/s]
-M_COOLANT = 1.0                 # mass flow rate                [kg/s]  (Konrad's original design: 0.28 kg/s)
+M_COOLANT = 1.0                 # mass flow rate                [kg/s]  (the thesis' primary operating case: 0.28 kg/s)
 V_COOLANT = 0.0                 # volumetric flow rate          [m3/s]
 
 # --- Operating conditions [solver]: air flow -- exactly one nonzero ------
@@ -83,14 +83,17 @@ INSIGHT_MODE = False             # per-iteration solver progress + detailed resu
                                  # (off: one summary block per scenario only)
 SOLVER_OUTPUTS = ['cooler_results', 'caching', 'resolution']   # figures and benchmarks (annual = minutes)
 
-# --- Benchmark settings [solver]: only used by the benchmark outputs ---
+# --- Output settings [solver]: only used by the optional outputs and benchmarks ---
 BENCHMARK_RESOLUTIONS = [2, 3, 4, 5, 6, 8, 10, 12, 15, 20, 25, 30, 40, 50, 75, 100]
                                  # Cell segments / NTU elements swept by the resolution benchmark
+BENCHMARK_TABLE_MAX_N = 100       # resolution benchmark: NTU tables are built and timed up to this N (the build grows steeply: ~13 s at N = 30)
 ANNUAL_CELL_STRIDE = 4           # annual benchmark: Cell runs on every n-th hour only (its year total is extrapolated)
-ANNUAL_TIME_BUDGET_S = 120.0     # annual benchmark: a solver exceeding this is stopped and extrapolated [s]
+ANNUAL_TIME_BUDGET_S = 120.0     # annual benchmark: a solver exceeding this is stopped and extrapolated [s]; 0 = no limit
 ANNUAL_WEATHER_CSV = None        # annual benchmark: weather file; None = the past year
+PROFILE_T_COOLANT_HOT = 90.0     # profile grids: second water inlet temperature, next to the run's own [°C]
+ACCURACY_T_COOLANT = [30, 40, 50, 60, 70, 80, 90]   # accuracy sweep: water inlet temperatures [°C]
 BENCHMARK_REPEATS = 3            # timed repeats per caching measurement (median is reported)
-BENCHMARK_SWEEP_REPEATS = 1      # timed repeats per resolution point (iteration counts are exact anyway)
+BENCHMARK_SWEEP_REPEATS = 3      # timed repeats per resolution point (iteration counts are exact anyway)
 
 # --- Solver tuning [solver]: shared by LMTD/NTU/Cell -----------------------
 DT_HOT_IT_INIT = 30.0           # initial Delta_T_hot guess                  [K]

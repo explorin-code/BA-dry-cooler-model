@@ -7,7 +7,7 @@ MODES = {"Solver comparison": "solver", "Cooler comparison": "compare"}
 
 # Sidebar order of the groups per mode (parameters.py's file order is not the order of use); groups not listed follow in file
 # order. The open ones are what one changes most often, the rest sits in collapsed expanders.
-GROUP_ORDER = {"solver": ("Run", "Operating conditions", "Coolant", "Precooling", "Cooler", "Benchmark settings", "Solver tuning"),
+GROUP_ORDER = {"solver": ("Run", "Operating conditions", "Coolant", "Precooling", "Cooler", "Output settings", "Solver tuning"),
                "compare": ("Analyses", "Comparison", "Coolant", "Precooling", "Prices")}
 OPEN_GROUPS = {"solver": ("Run", "Operating conditions", "Cooler"), "compare": ("Analyses", "Comparison")}
 
@@ -51,8 +51,11 @@ LABELS = {
     # solver: run
     'SOLVERS': "solvers that run", 'INSIGHT_MODE': "insight mode (per-iteration progress)", 'SOLVER_OUTPUTS': "figures and benchmarks",
     'BENCHMARK_RESOLUTIONS': r"resolutions swept ($N_s$ / $N_e$)",
+    'BENCHMARK_TABLE_MAX_N': r"resolution benchmark: NTU table build up to $N$",
     'ANNUAL_CELL_STRIDE': "annual benchmark: Cell on every n-th hour",
     'ANNUAL_TIME_BUDGET_S': "annual benchmark: time budget per solver [s]", 'ANNUAL_WEATHER_CSV': "annual benchmark: own weather CSV",
+    'PROFILE_T_COOLANT_HOT': r"profile grids: second $T_{c,i}$ [°C]",
+    'ACCURACY_T_COOLANT': r"accuracy sweep: $T_{c,i}$ values [°C]",
     'BENCHMARK_REPEATS': "caching benchmark: repeats", 'BENCHMARK_SWEEP_REPEATS': "resolution benchmark: repeats",
     # solver: solver tuning
     'DT_HOT_IT_INIT': r"$\Delta T_{hot}$ initial guess [K]", 'DT_COLD_IT_INIT': r"$\Delta T_{cold}$ initial guess [K]",

@@ -62,12 +62,11 @@ def calc_delta_p_coolant(geo, ops, coolant_state) -> float:
     expansion (1.0) at every pass and the N_p - 1 180-degree bends (1.5 each).
     Source: Towler, Chemical Engineering Design, 3rd ed., Sec. 19.8
     (Eq. 19.20); friction factor as Darcy f = 8 j_f (VDI L1.2).
-    Fixed 2026-10: previously used geo.l_tot (all passes) as the per-pass
-    length, counting friction N_r times too often (10.7 vs. 2.5 kPa)."""
+"""
     w_c = ops.w_c
     rho = coolant_state.rho
     mu = coolant_state.mu
-    mu_w = mu  # TEMP: no wall-temperature model yet -- visc_corr_c = 1.0 until then
+    mu_w = mu  # no wall-temperature model: the viscosity correction is 1.0 (docs/model-notes.md)
 
     Re = calc_Re_c(w_c, geo.d_i, rho, mu)
     f_c = calc_f_coolant(Re)

@@ -1,6 +1,6 @@
 """
 lmtd.py -- LMTD: the whole exchanger as pure counterflow (no correction factor F, deliberately the simplest of the three
-methods -- see docs/review-needed.md).
+methods -- see docs/model-notes.md).
 """
 
 from math import log

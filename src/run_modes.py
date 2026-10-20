@@ -23,6 +23,9 @@ class RunModes:
     annual_time_budget: float      # annual benchmark: per-solver budget before extrapolating [s]
     annual_weather_csv: str = None # annual benchmark: weather CSV, None = the Munich climate year
     annual_cell_stride: int = 4    # annual benchmark: Cell runs on every n-th hour only
+    benchmark_table_max_n: int = 30  # resolution benchmark: NTU table builds are timed up to this N
+    profile_t_coolant: float = None  # profile comparison: second water inlet temperature [°C]
+    accuracy_t_coolant: list = None  # accuracy sweep: water inlet temperatures [°C]
 
 
 def get_run_modes(**overrides) -> RunModes:
@@ -38,4 +41,7 @@ def get_run_modes(**overrides) -> RunModes:
         'annual_time_budget': 'ANNUAL_TIME_BUDGET_S',
         'annual_weather_csv': 'ANNUAL_WEATHER_CSV',
         'annual_cell_stride': 'ANNUAL_CELL_STRIDE',
+        'benchmark_table_max_n': 'BENCHMARK_TABLE_MAX_N',
+        'profile_t_coolant': 'PROFILE_T_COOLANT_HOT',
+        'accuracy_t_coolant': 'ACCURACY_T_COOLANT',
     }, **overrides)

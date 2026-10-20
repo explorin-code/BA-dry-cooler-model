@@ -2,6 +2,7 @@
 move without a decision (the fixed tube counts, the independence of the geometry from the operating inputs, the
 air-side power) stay put. All of it runs in well under a minute (`venv/bin/python -m pytest`)."""
 
+import numpy as np
 import pytest
 
 import src.parameters as parameters
@@ -93,12 +94,16 @@ def test_caching_and_resolution_benchmarks():
                                   solvers=['lmtd', 'ntu_field', 'cell_2d']))['outputs']
     assert set(results['caching']) == {'lmtd', 'ntu_field', 'cell_2d'}
     assert all(set(per_mode) == {'no cache', 'cold cache', 'warm cache'} for per_mode in results['caching'].values())
+    from src.benchmark_solvers import counts_table_latex
+    table = counts_table_latex(results['caching'])
+    assert table.count("\\\\\n") == 5 and 'Cell (2D)' in table and r'\begin{tabular}' in table
     resolution = results['resolution']
+    assert 'table_build' not in resolution                       # NTU (table) not selected
     assert [row[0] for row in resolution['ntu_field']] == [2, 3] and [row[0] for row in resolution['cell_2d']] == [2, 3]
     assert 'lmtd' in resolution
     import matplotlib.pyplot as plt
     titles = {plt.figure(n).canvas.manager.get_window_title() for n in plt.get_fignums()}
-    assert {'Caching performance (linear)', 'Caching performance (log)', 'Resolution performance'} <= titles
+    assert {'Caching times', 'Caching time split', 'Caching speed-up', 'Caching presentation', 'Resolution performance'} <= titles
 
 
 def test_annual_benchmark_runs_and_extrapolates():
@@ -106,6 +111,49 @@ def test_annual_benchmark_runs_and_extrapolates():
     lmtd = results['solvers']['LMTD']
     assert lmtd['n_done'] > 0 and lmtd['total'] > 0
     assert lmtd['complete'] == (lmtd['n_done'] == 8760)
+    assert not np.isnan(lmtd['T_c_o'][lmtd['hours'][0]])
+
+
+def test_annual_benchmark_without_budget_solves_everything_and_draws_the_deviation(tmp_path):
+    from src.benchmark_annual import RESULTS_FILE
+    from src.figures import SOLVER, load_data
+    results = run_scenarios(modes(outputs=['annual'], solvers=['lmtd', 'cell_2d'], annual_time_budget=0.0,
+                                  annual_cell_stride=730))['outputs']['annual']
+    assert results['solvers']['LMTD']['complete'] and results['solvers']['LMTD']['n_done'] == 8760
+    cell = results['solvers']['Cell (2D)']
+    assert cell['n_done'] == cell['n_target'] == 12 and not cell['complete']             # every 730th hour, extrapolated
+    assert load_data(SOLVER, RESULTS_FILE)['solvers']['Cell (2D)']['n_done'] == 12                        # the raw results were saved
+    import matplotlib.pyplot as plt
+    titles = {plt.figure(n).canvas.manager.get_window_title() for n in plt.get_fignums()}
+    assert {'Annual times', 'Annual deviation'} <= titles
+
+
+def test_accuracy_sweep_compares_to_the_reference():
+    from src.benchmark_accuracy import deviations
+    sweep = run_scenarios(modes(outputs=['accuracy'], solvers=['lmtd', 'ntu_field', 'cell_2d'],
+                                accuracy_t_coolant=[37.0, 80.0]))['outputs']['accuracy']
+    assert sweep['reference'] == 'cell_2d' and sweep['x'] == [37.0, 80.0] and sweep['x_run'] == 37.0
+    assert deviations(sweep, 'cell_2d') == ([0.0, 0.0], [0.0, 0.0])
+    dQ, dpinch = deviations(sweep, 'lmtd')
+    assert all(abs(d) < 5.0 for d in dQ) and dQ != [0.0, 0.0]
+    import matplotlib.pyplot as plt
+    assert 'Accuracy sweep' in {plt.figure(n).canvas.manager.get_window_title() for n in plt.get_fignums()}
+
+
+def test_profile_grids_solve_a_second_water_temperature():
+    cases = run_scenarios(modes(outputs=['profile_grids'], solvers=['lmtd', 'ntu_field'],
+                                profile_t_coolant=90.0))['outputs']['profile_grids']
+    assert [ops.T_c_i for ops, _ in cases] == [37.0, 90.0]
+    assert cases[1][1].reference.Q_dot > 3 * cases[0][1].reference.Q_dot
+    import matplotlib.pyplot as plt
+    titles = {plt.figure(n).canvas.manager.get_window_title() for n in plt.get_fignums()}
+    assert {'Profile grid (absolute)', 'Profile grid (normalised)', 'Profile graphs (normalised, solvers combined)',
+            'Profile results table'} <= titles
+
+
+def test_accuracy_sweep_needs_two_solvers():
+    with pytest.raises(ValueError, match="at least two"):
+        run_scenarios(modes(outputs=['accuracy'], solvers=['lmtd']))
 
 
 # --- cooler comparison ---------------------------------------------------------------------------------------
@@ -120,7 +168,7 @@ def test_comparison_analysis(analysis, outputs, monkeypatch):
     from comparison.runner import run_analyses
     results = run_analyses([analysis])
     assert results[analysis] and all(len(df) for df in results[analysis].values())
-    assert list((outputs / "figures" / "ch4").glob("*.png"))             # at least one figure was saved
+    assert list((outputs / "figures" / "ch4_results").glob("*/*.png"))   # at least one figure was saved
 
 
 def test_comparison_year_with_fan_control(outputs):
@@ -132,6 +180,83 @@ def test_comparison_year_with_fan_control(outputs):
     assert (control['w_fr'] <= parameters.COMPARE_W_FR_DESIGN + 1e-9).all()
     assert (control['w_fr'] >= parameters.COMPARE_W_FR_MIN - 1e-9).all()
     assert data['fixed']['w_fr'].eq(parameters.COMPARE_W_FR_DESIGN).all()
+    # the controlled hours that are not limited land on the target within TARGET_TOL, and every hour is either met or limited
+    assert control.loc[~control['limited'], 'target_met'].all()
+    assert not control.loc[control['limited'], 'target_met'].any()
+    from comparison import config, operation
+    summary = operation.annual_summary(config.settings(), control, hours_per_row=48)
+    assert (summary.h_target_met + summary.h_limited == len(control) / 3 * 48).all()
+
+
+def test_pinch_is_that_of_the_whole_cooler():
+    """The pinch is taken against the AMBIENT air also when precooled; the coil's own approach is pinch_coil."""
+    from comparison import config, evaluate as ev, sizing
+    cfg = config.settings()
+    geo = sizing.get_sized(cfg, 'P2')
+    ops = ev.make_ops(cfg, geo, 30.0, 0.3, 95500.0)
+    dry, wet = ev.run_point(cfg, geo, ops, 'ntu_field', 'dry'), ev.run_point(cfg, geo, ops, 'ntu_field', 'precooled')
+    assert dry['pinch'] == dry['pinch_coil'] == pytest.approx(dry['T_c_o'] - 30.0)
+    assert wet['pinch'] == pytest.approx(wet['T_c_o'] - 30.0)
+    assert wet['pinch_coil'] == pytest.approx(wet['T_c_o'] - wet['T_a_i']) and wet['T_a_i'] < 30.0 and wet['pinch'] < wet['pinch_coil']
+
+
+def test_geometry_has_the_print_size_drawing(outputs):
+    from comparison.runner import run_analyses
+    run_analyses(['geometry'])
+    assert (outputs / "figures" / "ch4_results" / "geometry" / "geometry_print.png").exists()
+
+
+def test_comparison_pinch_fan_figures_and_data(outputs):
+    parameters.COMPARE_YEAR_STRIDE = 48
+    from comparison import operation
+    from comparison.runner import run_analyses
+    data = run_analyses(['pinch_fan'])['pinch_fan']
+    year = data['year']
+    assert not data['control_dry'][data['control_dry']['mode'] == 'precooled'].shape[0]                 # no pad in the dry adaptive year
+    assert data['control_dry'].limited.sum() >= data['control'].limited.sum()                          # dry misses at least the hours the pad misses
+    assert set(year['mode']) == {'dry', 'precooled'} and len(year) == 2 * len(year[year['mode'] == 'dry'])    # both modes, every hour
+    wet = year[year['mode'] == 'precooled']
+    assert np.allclose(wet.pinch, wet.T_c_o - wet.T_a_amb)                                            # pinch of the whole cooler
+    assert (wet.pinch_coil >= wet.pinch - 1e-9).all()                                                 # the pad only cools the air
+    assert 15 < operation.target_crossing(year[year.set == 'P2'], 'dry', 25.0) < 25                   # the dry outlet passes 25 degC near 20 degC ambient
+    import matplotlib.pyplot as plt
+    assert {'Pinch year', 'Pinch speed', 'Controlled fan'} <= {plt.figure(n).canvas.manager.get_window_title() for n in plt.get_fignums()} or \
+        {p.stem for p in (outputs / "figures" / "ch4_results" / "cooler_performance").glob("*.png")} >= {'pinch_year', 'pinch_year_clouds', 'missed_hours', 'pinch_speed', 'controlled_fan', 'fan_cop', 'annual_costs', 'monthly_cost', 'water_vs_hours'}
+
+
+def test_variation_table_and_figures(outputs):
+    """The geometry variations: a reduced range set through the real code path (worker processes, tables, plot); the cooler's own value is in every curve,
+    the dotted / open-marker classes of the figure exist, and the costs add up."""
+    from comparison import config, variation
+    from comparison.plots_print import variation_figures
+    parameters.COMPARE_YEAR_STRIDE = 96
+    cfg = config.settings()
+    ranges = {'N_r': (6, 6, 1), 'N_t': (20, 40, 2), 'l': (1.0, 3.0, 2), 's_l_mm': (20.0, 30.0, 2), 's_f_mm': (2.0, 4.0, 2), 'delta_f_mm': (0.1, 0.2, 2)}
+    df = variation.run(cfg, ranges=ranges)
+    assert set(df.set) == set(cfg.sets) and set(df.param) == set(ranges)
+    assert (df[df.standard].groupby(['set', 'param']).size() == 1).all()                              # one standard point per curve
+    std = df[df.standard & (df.param == 'N_r')].set_index('set')
+    assert (std.pinch > 0).all() and (std.E_fan_kWh > 0).all() and (std.m_Cu > 0).all()
+    costs = variation.add_costs(cfg, df)
+    assert np.allclose(costs.cost_total, costs.cost_fan + costs.cost_pump + costs.cost_water + costs.cost_material)
+    from comparison import operation
+    assert np.isclose(costs[costs.standard & (costs.set == 'P2')].cost_material.iloc[0], operation.material_writeoff(cfg, 'P2'))     # same write-off as the annual summary
+    variation_figures(df, cfg)
+    assert {'variation_costs.png', 'variation_totals.png'} <= {p.name for p in (outputs / "figures" / "ch4_results" / "cooler_performance").glob("*.png")}
+
+
+def test_fixed_year_rule_matches_the_solved_fixed_year():
+    """operation.fixed_year picks dry / precooled per hour from the both-modes year exactly as year_fixed solves it."""
+    from comparison import config, operation
+    cfg = config.settings()
+    parameters.COMPARE_YEAR_STRIDE = 96
+    both = operation.year_modes(cfg, stride=96)
+    derived = operation.fixed_year(both)
+    solved = operation.year_fixed(cfg, stride=96)
+    key = ['set', 'hour']
+    merged = derived.merge(solved, on=key, suffixes=('_derived', '_solved'))
+    assert len(merged) == len(solved) == len(derived)
+    assert np.allclose(merged.P_fan_derived, merged.P_fan_solved) and (merged.mode_derived == merged.mode_solved).all()
 
 
 def test_comparison_sizing_is_the_reference_count():
@@ -181,7 +306,7 @@ def test_profiling_counts_and_cache_switch_restore_everything():
 def test_solver_figures_are_saved_with_their_titles(tmp_path):
     parameters.T_AIR_IN = 27.0
     run_scenarios(modes(outputs=['cooler_results', 'convergence']))
-    saved = {p.name for p in (tmp_path / "figures" / "solver").glob("*.png")}
+    saved = {p.name for p in (tmp_path / "figures" / "ch4_results" / "solver").glob("*.png")}
     assert saved == {'cooler_results_dry.png', 'cooler_results_precooled.png', 'convergence_dry.png', 'convergence_precooled.png'}
 
 
@@ -227,3 +352,15 @@ def test_gui_flow_given_as_volume_flow_gives_the_same_result():
     row_volume = run('V_COOLANT')
     assert row_mass.split('|')[3:6] == row_volume.split('|')[3:6]         # Q, T_c,o, T_a,o identical to the printed digits
     assert 'LMTD' in row_mass
+
+
+def test_resolution_benchmark_times_the_table_build_up_to_the_maximum():
+    resolution = run_scenarios(modes(outputs=['resolution'], benchmark_resolutions=[3, 15, 20], benchmark_table_max_n=15,
+                                     solvers=['ntu_table']))['outputs']['resolution']
+    assert [n for n, _ in resolution['table_build']] == [3, 15] and all(t > 0 for _, t in resolution['table_build'])
+    assert resolution['ntu_variants'] == 'table' and [row[0] for row in resolution['ntu_field']] == [3, 15, 20]
+    # all swept n up to the maximum are timed; the design point has R = C_a/C_c ~ 1.4: the table of 3 elements (R up to 0.3)
+    # does not cover it (a field solve ran), the one of 15 does
+    table = resolution['ntu_table']
+    assert [row[0] for row in table] == [3, 15] and resolution['table_covers'] == [15]
+    assert abs(table[1][3] - resolution['ntu_field'][1][3]) < 1e-3

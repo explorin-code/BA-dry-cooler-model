@@ -14,6 +14,11 @@ def fmt_ms(value_ms: float) -> str:
     return f"{value_ms:.2f} ms" if value_ms < 10 else f"{value_ms:.1f} ms"
 
 
+def fmt_compact(value: float) -> str:
+    """A number for a label on a bar without its unit: two decimals below 10, one below 100, whole numbers above."""
+    return f"{value:.2f}" if value < 10 else f"{value:.1f}" if value < 100 else f"{value:.0f}"
+
+
 def fmt_duration(seconds: float) -> str:
     """A duration in the unit that fits it: ms, s, min or h."""
     if seconds < 1:

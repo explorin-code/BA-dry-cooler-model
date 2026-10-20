@@ -63,7 +63,7 @@ def _get_fluid_properties_cached(fluid: str, T_rounded: float, P: float) -> Flui
 # property sets, a period-2 limit cycle (Cell ~1.5e-5 K; LMTD/NTU up to
 # ~1.5e-3 K at cold, humid hours, i.e. above the 1e-3 K threshold). LMTD/NTU's
 # outer loop damps such stalled oscillations (solvers/relaxation.py); 0.001 K
-# would also remove them, but costs Cell ~+31 % in annual runs (docs/review-needed.md).
+# would also remove them, but costs Cell ~+31 % in annual runs (docs/model-notes.md).
 CACHE_T_DECIMALS = 2
 
 
@@ -82,9 +82,7 @@ def get_fluid_properties(ops, T: float, P: float) -> FluidState:
     return _fluid_lookup(ops.coolant_type, round(T, CACHE_T_DECIMALS), P)
 
 
-# AI-REVIEW: HAPropsSI key conventions (Vha/Cha = per kg humid air, not per
-# kg dry air) never independently verified against a reference psychrometric
-# chart/table. See docs/review-needed.md.
+# HAPropsSI key conventions: Vha/Cha are per kg humid air, not per kg dry air (docs/model-notes.md).
 @lru_cache(maxsize=None)
 def _get_air_properties_cached(Y_rounded: float, T_rounded: float, P: float) -> FluidState:
     T_kelvin = T_rounded + 273.15

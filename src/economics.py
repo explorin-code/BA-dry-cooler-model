@@ -44,8 +44,7 @@ def calc_water_usage(ops_ambient, ops_precooled) -> float:
     flow times the humidity-ratio increase (X is per kg DRY air; ops.m_dot_a
     is the humid-air mass flow, so the dry-air share is m_dot_a / (1 + X)).
     Source: mass balance, VDI-Wärmeatlas (2019) M8 (degree of
-    humidification definition). Fixed 2026-10: previously multiplied the
-    humid-air mass flow by delta X (~0.4 % too high)."""
+    humidification definition)."""
     m_dot_da = ops_ambient.m_dot_a / (1.0 + ops_ambient.Y)
     Y_i = ops_ambient.Y
     Y_pc = ops_precooled.Y

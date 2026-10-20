@@ -7,8 +7,10 @@ a color-lightening helper, and generic (domain-independent) round-number
 axis-tick math.
 """
 
+import functools
 import numpy as np
 import matplotlib.colors as mc
+import matplotlib.pyplot as plt
 
 # --- TUM Corporate Design (Handbuch 2016, p. 20-21) -------------------------------------------------------
 # The handbook prints Pantone 300 as RGB 0/101/189 but as Hex #3070b3; the RGB value (= #0065BD) is used.
@@ -201,3 +203,50 @@ def draw_text_grid(ax, x_anchor, y_anchor, blocks, facecolor, edgecolor, fontsiz
 
     draw()
     fig.canvas.mpl_connect('resize_event', draw)
+
+
+# =============================================================================
+# Print size
+# =============================================================================
+# The thesis graphs are placed at about 90 % of the text width, so they are drawn at about that size (inches, points):
+# the text stays legible when they are placed without scaling. Used through print_context().
+PRINT_STYLE = {'font.size': 8, 'axes.titlesize': 8, 'axes.labelsize': 8, 'xtick.labelsize': 7, 'ytick.labelsize': 7,
+               'legend.fontsize': 6, 'axes.linewidth': 0.8, 'grid.linewidth': 0.5, 'ytick.major.size': 3,
+               'ytick.major.width': 0.8, 'axes.labelpad': 2, 'axes.titlepad': 4, 'legend.borderpad': 0.3,
+               'legend.labelspacing': 0.25, 'legend.handlelength': 1.2, 'legend.columnspacing': 0.8,
+               'legend.handletextpad': 0.4, 'legend.borderaxespad': 0.4}
+PRINT_WIDTH, PRINT_DPI = 6.9, 300
+PRINT_LW = 1.1                    # line width of the line graphs at print size
+PRINT_DASHED = (0, (5, 2.6))      # the second case / the reference lines
+
+
+def print_context(extra: dict = None, talk: bool = False):
+    """The matplotlib context of the print-size thesis graphs (use as `with print_context(): ...`): seaborn's whitegrid look with
+    PRINT_STYLE on top, then `extra` (e.g. larger text for slides). talk=True adds seaborn's 'talk' proportions (tick lengths, marker
+    sizes, ...) underneath: the solver-comparison figures use them, the cooler-comparison figures do not (as printed in the thesis).
+    A context, not seaborn's global theme -- the GUI shows both workflows in one process."""
+    import seaborn as sns
+    base = {**sns.axes_style('whitegrid'), **(sns.plotting_context('talk') if talk else {})}
+    return plt.rc_context({**base, **PRINT_STYLE, **(extra or {})})
+
+
+def large_format_context():
+    """The style of the large-format figures (cooler results, convergence, the comparison's overview figures): seaborn whitegrid
+    at 'talk' size, as a context."""
+    import seaborn as sns
+    return plt.rc_context({**sns.axes_style('whitegrid'), **sns.plotting_context('talk')})
+
+
+def _runs_in(context):
+    """Decorator factory: the decorated plot function runs inside `context()`."""
+    def decorator(plot):
+        @functools.wraps(plot)
+        def wrapped(*args, **kwargs):
+            with context():
+                return plot(*args, **kwargs)
+        return wrapped
+    return decorator
+
+
+in_large_format = _runs_in(large_format_context)      # @in_large_format: the function draws in large_format_context()
+in_solver_print_style = _runs_in(lambda: print_context(talk=True))      # @in_solver_print_style: the function draws in print_context(talk=True)

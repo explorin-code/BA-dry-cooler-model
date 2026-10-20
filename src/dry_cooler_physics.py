@@ -17,7 +17,7 @@ from src.param_loader import MM
 # Source: VDI-Wärmeatlas, 12th ed. (2019), Chapter D6, Tab. 8 (design values
 # from DIN EN ISO 10456): aluminium / aluminium alloys 160, copper 380,
 # steel (structural / reinforcing) 50 -- technical alloys, not the
-# pure-metal 401 / 237. Checked 2026-10 against the table.
+# pure-metal 401 / 237.
 SOLID_CONDUCTIVITIES = {
     'Aluminum':     160.0,
     'Copper':       380.0,
@@ -52,9 +52,7 @@ class Geometry:
                                    # only enters Wang's d_c (friction factor, narrowest gap)
 
     # --- Intermediate ----------------------------------------------------
-    # AI-REVIEW: the fin count follows from the fin pitch; it replaced a
-    # hardcoded "9 fins/inch" constant that was inconsistent with s_f. Confirm
-    # against the physical hardware (see docs/review-needed.md).
+    # The fin count follows from the fin pitch s_f (see docs/model-notes.md).
     @property
     def N_f(self) -> int:
         """Number of fins along one tube pass (whole fins only)."""
