@@ -17,7 +17,7 @@
   uses its own 2320-3000 blend); 30 % glycol drops it to ~1700 (laminar),
   alpha_c 1584 -> 383 W/m²K, Q -37 %. Precooler water stays
   'Water' (precooling.calc_c_W) regardless of the coolant.
-- GUI layout (2026-10): groups in `gui.GROUP_ORDER` per mode (solver: Run, Operating conditions, Coolant, Precooling, Cooler, Benchmark settings, Solver
+- GUI layout: groups in `gui.GROUP_ORDER` per mode (solver: Run, Operating conditions, Coolant, Precooling, Cooler, Output settings, Solver
   tuning; compare: Analyses, Comparison, Coolant, Precooling, Prices; the first ones open, the rest collapsed), booleans as toggles, the outputs /
   analyses as ONE multiselect each (from the catalogues), the 'exactly one nonzero' flow triples (M/W/V_COOLANT, W_O/M_O/V_O) as a 'given as'
   selectbox ABOVE the form (so the number field follows at once; its start value = the equivalent of parameters.py's default on the preset cooler,
@@ -32,23 +32,23 @@
   tables, log output and all figures. One run at a time across browser
   tabs (shared module state). Restart the Streamlit server after editing
   anything under `src/` -- it only reloads `gui.py` itself.
-- Benchmark instrumentation (2026-10, replaced the monkey-patching of the caching benchmark): `src/profiling.py` -- `@timed('lookup' | 'coolprop' | 'k')`
+- Benchmark instrumentation: `src/profiling.py` -- `@timed('lookup' | 'coolprop' | 'k')`
   hooks on `get_fluid_properties` / `get_air_properties`, the CoolProp calls of `fluid_properties` and `calc_overall_k`, active only inside
   `profiling.record()`; the cache modes use `fluid_properties.caching(False)` / `clear_cache()` (a context manager that restores in `finally`).
   The hooks cost ~2-4 % of Cell's warm time in every run (measured: LMTD 0.11 -> 0.12 ms, NTU 4.6 -> 4.7, Cell 2D 20.2 -> 21.2, Cell 3D 648 -> 675 ms);
   call counts are identical to the patched version (LMTD 19 / 38, Cell 2D 2040 / 4082, Cell 3D 65280 / 130562 k / lookups).
 
-## Notes behind the short parameter comments (2026-10)
+## Notes behind the parameter comments
 
-The comments in `parameters.py` are the GUI's help texts, so they are kept to one line; what they used to say in full:
+The comments in `parameters.py` are the GUI's help texts, so they are kept to one line; the longer notes:
 - `W_O` 2.5 m/s is a normal operating speed (Towler's typical value); the cooler's design / top fan speed is 3 m/s (`COMPARE_W_FR_DESIGN`). The lower speed also
   triggers precooling at 27 degC, which is handy for testing.
 - `N_TUBES = None`: the cell's `N_t_ref` -- 1 kg/s of 37 degC water to 25 degC at 20 degC / 60 %, 3 m/s -- fixed, not following the operating inputs.
 - `CENTRAL_OMEGA` 0.3 (LMTD): stable up to 0.4, diverges from 0.5 (winter -10 degC) / 0.7 (everywhere); the loop is shared with NTU and Cell, which use
-  their own `NTU_OMEGA` / `CELL_OMEGA` (`review-needed.md`: relaxation study). `CELL_OMEGA` 0.2 stopped ~0.02 K before convergence (Q +0.17 %).
+  their own `NTU_OMEGA` / `CELL_OMEGA` (model-notes.md, section 2). `CELL_OMEGA` 0.2 stopped ~0.02 K before convergence (Q +0.17 %).
 - `CONVERGENCE_THRESHOLD`: both outlet temperatures change by less than it per iteration (NTU's inner field: 1/10 of it); keep >= ~1e-4 -- the property cache
   rounds T to 0.01 K, which leaves Cell a ~1.5e-5 K limit cycle.
 - `PAD_IN_DRY_AIR_PATH`: precooled operation always passes the pad; in dry operation True counts its pressure drop, False = separate bypass inlet.
-- `COPPER_EUR_PER_KG` / `ALUMINIUM_EUR_PER_KG`: LME cash ~14 300 / ~3 134 USD/t (2 / 6 Oct 2026) at 1.15 USD/EUR; no premium for tubes / fin stock.
+- `COPPER_EUR_PER_KG` / `ALUMINIUM_EUR_PER_KG`: LME cash prices of 9 Oct 2026 converted to EUR (cooler-comparison.md, cost model); no premium for tubes / fin stock.
 - `COMPARE_W_FR_DESIGN`: above ~3 m/s droplet carry-over, noise and fin damage; Towler's typical face velocity is 2.5 m/s.
 - `COMPARE_RE_TUBE`: > 4000 is out of the transition band; only the tubes / wall studies use it (the tube counts are the cells' `N_t_ref`).
