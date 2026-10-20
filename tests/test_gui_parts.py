@@ -5,7 +5,7 @@ import pytest
 
 import src.parameters as parameters
 from comparison.analyses import ANALYSES
-from src.outputs import OUTPUTS
+from src.workflow.outputs import OUTPUTS
 from src.solvers import SOLVER_LABELS
 from ui import labels
 from ui.parameter_file import read_parameters

@@ -6,7 +6,7 @@ usage from precooling. Consumes already-solved OperatingConditions/
 FluidState/Geometry -- no solver/precooling internals.
 """
 
-from src.fluid_properties import get_air_properties
+from src.thermo.fluid_properties import get_air_properties
 
 
 def calc_pump_power(ops, coolant_state, Delta_p: float) -> float:

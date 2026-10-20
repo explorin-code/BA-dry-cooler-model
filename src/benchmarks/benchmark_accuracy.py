@@ -12,9 +12,9 @@ import logging
 import matplotlib.pyplot as plt
 
 from src import solvers
-from src.figures import save_figure, SOLVER
-from src.operating_conditions import ops_like
-from src.plot_style import PRINT_DPI, PRINT_LW as LW, PRINT_WIDTH, TUM_GREY_50, print_context, solver_color
+from src.plots.figures import save_figure, SOLVER
+from src.inputs.operating_conditions import ops_like
+from src.plots.plot_style import PRINT_DPI, PRINT_LW as LW, PRINT_WIDTH, TUM_GREY_50, print_context, solver_color
 from src.quiet import quiet_solvers
 
 logger = logging.getLogger(__name__)

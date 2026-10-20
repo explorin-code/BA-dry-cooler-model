@@ -6,16 +6,16 @@ mode). `settings()` reads it ONCE per run into a `Settings` object that is hande
 (`cfg`) -- nothing in the comparison reads parameters.py behind the scenes, so a run is reproducible from its `cfg`.
 
 What is NOT a setting is defined here: the literature ranges of the sensitivity study and the material densities.
-The coolers themselves are src/cooler_sets.py.
+The coolers themselves are src/inputs/cooler_sets.py.
 """
 
 import dataclasses
 from dataclasses import dataclass
 
 import src.parameters as parameters
-from src import weather
-from src.cooler_sets import CELL_SETS
-from src.solver_settings import SolverSettings, get_solver_settings
+from src.inputs import weather
+from src.inputs.cooler_sets import CELL_SETS
+from src.inputs.solver_settings import SolverSettings, get_solver_settings
 
 # The water target is met when T_c,o <= target + TARGET_TOL: the variable-speed fan lands on the target within its root-finder
 # tolerance (face velocity to 1e-3 m/s = a few mK), far below the accuracy of the model. ONE definition for every flag and count.
@@ -29,7 +29,7 @@ NTU_ELEMENTS = 60
 @dataclass(frozen=True)
 class Settings:
     """One cooler comparison: coolers, water, operation, solver, prices (parameters.py, group Comparison + prices)."""
-    set_keys: tuple                 # the compared coolers (src/cooler_sets.py keys)
+    set_keys: tuple                 # the compared coolers (src/inputs/cooler_sets.py keys)
     solver_key: str                 # one of solvers.SOLVER_LABELS
     solver_settings: SolverSettings  # tuning of the solvers (parameters.py, group Solver tuning), Cell 2D, 60 NTU elements
     m_dot_c: float                  # water per module [kg/s]
@@ -54,7 +54,7 @@ class Settings:
     lifetime_years: float
 
     def cell(self, key):
-        """Cooler `key` (any of src/cooler_sets.py, compared or not) as a module cell with the comparison's rows."""
+        """Cooler `key` (any of src/inputs/cooler_sets.py, compared or not) as a module cell with the comparison's rows."""
         return dataclasses.replace(CELL_SETS[key], N_r=self.n_rows)
 
     @property

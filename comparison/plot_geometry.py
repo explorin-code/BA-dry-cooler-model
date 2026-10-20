@@ -19,8 +19,8 @@ from matplotlib.patches import Circle, Rectangle
 
 from comparison import evaluate as ev, sizing
 from comparison.plots_common import SET_COLOR, save_figure
-from src.figures import GEOMETRY
-from src.plot_style import PRINT_DPI, PRINT_WIDTH, TUM_GREY_50, TUM_GREY_80, print_context
+from src.plots.figures import GEOMETRY
+from src.plots.plot_style import PRINT_DPI, PRINT_WIDTH, TUM_GREY_50, TUM_GREY_80, print_context
 
 FIN, TUBE, WATER = '#9aa5b1', '#b87333', '#a8d0f0'
 

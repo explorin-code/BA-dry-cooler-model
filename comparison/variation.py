@@ -20,7 +20,7 @@ import numpy as np
 import pandas as pd
 
 from comparison import evaluate as ev, operation, sizing
-from src import weather
+from src.inputs import weather
 from src.quiet import quiet_solvers
 
 STRIDE = 6                                    # every n-th hour of the year (a coarser cfg.year_stride wins)

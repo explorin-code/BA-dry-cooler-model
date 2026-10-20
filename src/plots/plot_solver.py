@@ -18,15 +18,15 @@ import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.patches import Patch
 
-from src.run_scenario import draw_convergence
+from src.workflow.run_scenario import draw_convergence
 from src.solvers import SOLVER_FAMILY
 from src import solvers
-from src.benchmark_solvers import CACHE_MODES, PART_COLORS, TIME_PARTS, resolution_labels
-from src.figures import save_figure, slug, SOLVER
+from src.benchmarks.benchmark_solvers import CACHE_MODES, PART_COLORS, TIME_PARTS, resolution_labels
+from src.plots.figures import save_figure, slug, SOLVER
 from src.formatting import fmt_compact, fmt_duration
 from matplotlib.ticker import NullFormatter
 
-from src.plot_style import PRINT_DASHED, PRINT_DPI, PRINT_LW, PRINT_WIDTH, TUM_GREY_50, in_large_format, lighten_color, print_context, solver_color
+from src.plots.plot_style import PRINT_DASHED, PRINT_DPI, PRINT_LW, PRINT_WIDTH, TUM_GREY_50, in_large_format, lighten_color, print_context, solver_color
 
 
 @in_large_format

@@ -20,8 +20,8 @@ import numpy as np
 import pandas as pd
 from scipy.interpolate import PchipInterpolator
 
-from src import weather
-from src.precooling import calc_eta_B
+from src.inputs import weather
+from src.thermo.precooling import calc_eta_B
 
 BIN_K = 0.5
 

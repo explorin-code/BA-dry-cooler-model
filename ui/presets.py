@@ -6,8 +6,8 @@ reference tube count, and the equivalents of the file's flows in every form of F
 import streamlit as st
 
 import src.parameters as parameters
-from src.cooler_sets import CELL_SETS
-from src.dry_cooler_physics import CELL_PARAMETERS, get_cell_values
+from src.inputs.cooler_sets import CELL_SETS
+from src.inputs.geometry import CELL_PARAMETERS, get_cell_values
 
 PRESET_PARAMETERS = (*CELL_PARAMETERS, 'N_TUBES')           # None = what the standard cooler says; shown with that value
 
@@ -31,8 +31,8 @@ def cell_defaults(preset):
 def flow_equivalents(preset, _defaults):
     """The flows of parameters.py's defaults on the preset cooler, in every form of FLOW_TRIPLES: {constant: value} --
     what the number field shows when another form is chosen. _defaults: {name: default} of parameters.py (not hashed)."""
-    from src.dry_cooler_physics import get_geometry
-    from src.operating_conditions import get_operating_conditions
+    from src.inputs.geometry import get_geometry
+    from src.inputs.operating_conditions import get_operating_conditions
     saved = {name: getattr(parameters, name) for name in _defaults}
     try:
         for name, value in _defaults.items():

@@ -55,10 +55,10 @@ from matplotlib.patheffects import Normal, Stroke
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 
 import src.parameters as parameters
-from src.dry_cooler_physics import get_geometry
-from src.operating_conditions import get_operating_conditions
-from src.precooling import calc_precooler
-from src.solver_settings import get_solver_settings
+from src.inputs.geometry import get_geometry
+from src.inputs.operating_conditions import get_operating_conditions
+from src.thermo.precooling import calc_precooler
+from src.inputs.solver_settings import get_solver_settings
 from src.solvers import (cell_path_order, get_coolant_inlet, get_staggered_air_inlet, solve_cell,
                          solve_ntu)
 

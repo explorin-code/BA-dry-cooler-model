@@ -11,7 +11,7 @@ Section L1.3, p. 1369 (bends). Air source: Wang, Chi & Chang, Part II
 import warnings
 from math import log
 
-from src.fluid_properties import get_air_properties
+from src.thermo.fluid_properties import get_air_properties
 from src.heat_transfer_core import calc_Re_c, calc_Re_a
 
 # =============================================================================

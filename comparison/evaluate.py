@@ -19,13 +19,13 @@ import logging
 import warnings
 
 from src import solvers
-from src.cooler_sets import CellSet
-from src.dry_cooler_physics import Geometry
-from src.operating_conditions import OperatingConditions
-from src.pressure_drop import calc_delta_p_air, calc_delta_p_coolant, check_wang_range
-from src.fluid_properties import get_fluid_properties
-from src.economics import calc_fan_power, calc_pump_power, calc_water_usage
-from src.precooling import calc_precooled_ops
+from src.inputs.cooler_sets import CellSet
+from src.inputs.geometry import Geometry
+from src.inputs.operating_conditions import OperatingConditions
+from src.auxiliaries.pressure_drop import calc_delta_p_air, calc_delta_p_coolant, check_wang_range
+from src.thermo.fluid_properties import get_fluid_properties
+from src.auxiliaries.economics import calc_fan_power, calc_pump_power, calc_water_usage
+from src.thermo.precooling import calc_precooled_ops
 
 from comparison import config
 

@@ -8,11 +8,11 @@ import math
 import streamlit as st
 
 from comparison.analyses import ANALYSES
-from src import weather
-from src.cooler_sets import CELL_SETS
-from src.dry_cooler_physics import SOLID_CONDUCTIVITIES
-from src.fluid_properties import COOLANTS
-from src.outputs import OUTPUTS
+from src.inputs import weather
+from src.inputs.cooler_sets import CELL_SETS
+from src.inputs.geometry import SOLID_CONDUCTIVITIES
+from src.thermo.fluid_properties import COOLANTS
+from src.workflow.outputs import OUTPUTS
 from src.solvers import SOLVER_LABELS
 from ui.labels import FLOW_MEMBERS, FLOW_TRIPLES, GROUP_ORDER, OPEN_GROUPS, label
 from ui.presets import PRESET_PARAMETERS, cell_defaults, flow_equivalents

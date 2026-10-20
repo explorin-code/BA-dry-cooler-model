@@ -2,10 +2,10 @@
 common.py -- what every solver does first: fill in the defaults, evaluate the states at the mean temperatures.
 """
 
-from src.dry_cooler_physics import get_geometry
-from src.fluid_properties import get_air_properties, get_fluid_properties
-from src.operating_conditions import get_operating_conditions
-from src.solver_settings import get_solver_settings
+from src.inputs.geometry import get_geometry
+from src.thermo.fluid_properties import get_air_properties, get_fluid_properties
+from src.inputs.operating_conditions import get_operating_conditions
+from src.inputs.solver_settings import get_solver_settings
 
 
 def fill_defaults(ops, geo, settings):

@@ -60,7 +60,7 @@
   `pressure_drop.py` are internal names.
 
 ## Figure labels aligned with the thesis Notation
-- Result boxes (`src/run_scenario.py`): `N_r`, `N_t`, `l x b` (was n_rows, n_tubes, H x W), `A_fr` (was A_front),
+- Result boxes (`src/workflow/run_scenario.py`): `N_r`, `N_t`, `l x b` (was n_rows, n_tubes, H x W), `A_fr` (was A_front),
   `P_tot` (was P_total),
   `m_dot_ev` (was m_dot_water; also `ui/results.py`, `comparison/plots_common.LABEL`).
 - Heat-flow profiles: `d Q_dot / d l` and `Q_dot / l_tot` (was dQ/dL, Q/L; `L` is the service life in the cost

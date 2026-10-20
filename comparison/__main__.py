@@ -7,7 +7,7 @@ import logging
 
 import src.parameters as parameters
 from comparison.analyses import ANALYSES
-from src.cooler_sets import CELL_SETS
+from src.inputs.cooler_sets import CELL_SETS
 from src.solvers import SOLVER_LABELS
 from comparison.runner import run_analyses
 

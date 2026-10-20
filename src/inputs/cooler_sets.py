@@ -6,7 +6,7 @@ of three plain plate-fin-and-tube coils taken from the literature. Only the elem
 sources; the module around it (tubes per row, tube length, rows) is chosen by the run:
 
   * single-cooler runs take a cell as the default geometry (parameters.GEOMETRY_SET) and may override
-    any value (dry_cooler_physics.get_geometry);
+    any value (geometry.get_geometry);
   * cooler comparisons size every cell to the same water flow and race them against each other
     (comparison/).
 

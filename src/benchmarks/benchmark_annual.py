@@ -11,7 +11,7 @@ only the inlet air changes from hour to hour, coolant inlet and flows stay at th
   variant only (NTU field is a fallback if neither LMTD nor NTU table ran).
 - NTU table: shown twice -- with the table already built and with the build included (the P(NTU, R) table is
   rebuilt for this benchmark, never read from disk; the build is the price of the first year, nothing afterwards).
-- Weather: the Munich climate year of src/weather.py (the same data the cooler comparison uses), or
+- Weather: the Munich climate year of src/inputs/weather.py (the same data the cooler comparison uses), or
   ANNUAL_WEATHER_CSV (columns T_air_C, phi_percent[, p_Pa], 8760 rows).
 - Caching: the property cache is on (the best case for repeated runs) and is emptied before each solver's
   year, so every solver starts equally cold and warms up over its own year.
@@ -33,13 +33,13 @@ import time
 import numpy as np
 
 import src.solvers as solvers
-from src import weather
-from src import fluid_properties
-from src import figures
-from src.benchmark_solvers import build_fresh_table, preserved_ntu_tables
+from src.inputs import weather
+from src.thermo import fluid_properties
+from src.plots import figures
+from src.benchmarks.benchmark_solvers import build_fresh_table, preserved_ntu_tables
 from src.formatting import fmt_duration, machine_info
 from src.quiet import silence_all
-from src.operating_conditions import get_operating_conditions
+from src.inputs.operating_conditions import get_operating_conditions
 
 logger = logging.getLogger(__name__)
 

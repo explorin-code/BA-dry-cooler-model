@@ -14,7 +14,7 @@ import logging
 
 import numpy as np
 
-from src.fluid_properties import get_air_properties, get_fluid_properties
+from src.thermo.fluid_properties import get_air_properties, get_fluid_properties
 from src.heat_transfer_core import calc_diagnostics, calc_overall_k
 from src.solvers.common import fill_defaults, mean_states
 from src.solvers.field import (air_inlet, calc_element_effectiveness, calc_element_outlets, cell_path_order,

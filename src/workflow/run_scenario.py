@@ -9,9 +9,9 @@ the convergence panels used by the convergence figure
 """
 
 from src.solvers import SOLVER_FAMILY, ScenarioResult
-from src.operating_conditions import OperatingConditions
-from src.economics import calc_total_power
-from src.plot_style import family_color, lighten_color
+from src.inputs.operating_conditions import OperatingConditions
+from src.auxiliaries.economics import calc_total_power
+from src.plots.plot_style import family_color, lighten_color
 
 
 def plot_with_tail(ax, series, max_len, color, label, linewidth=2.2, marker='o', markersize=3):
@@ -127,7 +127,7 @@ def input_condition_cells(ops: OperatingConditions, geo) -> list:
 
 def economics_cells(P_pump, P_fan, m_dot_ev) -> list:
     """Blocks for the economics box."""
-    from src.economics import calc_total_power
+    from src.auxiliaries.economics import calc_total_power
     P_total = calc_total_power(P_pump, P_fan)
     fmt_w = lambda v: f"{v:7.2f} W" if v is not None else "n/a"
     return [[["Economics:", r"$P_{pump}$ =", fmt_w(P_pump), r"$P_{fan}$ =", fmt_w(P_fan),

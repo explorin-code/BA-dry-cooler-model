@@ -9,13 +9,13 @@ them per run. The toggles are independent: any combination works.
 
 from dataclasses import dataclass
 
-from src.param_loader import from_parameters
+from src.inputs.param_loader import from_parameters
 
 
 @dataclass
 class RunModes:
     insight_mode: bool             # per-iteration progress + detailed results in the terminal
-    outputs: list                  # keys of src/outputs.py's catalogue to produce (figures, benchmarks)
+    outputs: list                  # keys of src/workflow/outputs.py's catalogue to produce (figures, benchmarks)
     solvers: list                  # solvers that run: keys of solvers.SOLVER_LABELS
     benchmark_resolutions: list    # Cell segments / NTU elements swept by the benchmark
     benchmark_repeats: int         # timed repeats per caching measurement (median reported)

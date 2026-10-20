@@ -1,5 +1,5 @@
 """
-analysis.py
+profiles.py
 ============
 Reconstructs a comparable spatial profile (temperature, k, dQ/dL along the
 coolant's flow path) for each solver from its already-converged output.
@@ -11,7 +11,7 @@ converged scalars -- NOT something it tracks internally. See docs/model-notes.md
 from dataclasses import dataclass
 import numpy as np
 
-from src.fluid_properties import get_fluid_properties, get_air_properties
+from src.thermo.fluid_properties import get_fluid_properties, get_air_properties
 from src.solvers import cell_path_order
 
 

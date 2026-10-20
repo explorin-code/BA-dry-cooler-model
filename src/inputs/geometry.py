@@ -1,5 +1,5 @@
 """
-dry_cooler_physics.py
+geometry.py
 ======================
 Cooler geometry: tube/fin dimensions and every derived area, ratio and
 pitch the heat-transfer correlations need. Raw inputs come from
@@ -9,8 +9,8 @@ parameters.py; everything else here is derived from those.
 from dataclasses import dataclass
 import numpy as np
 
-from src.cooler_sets import CELL_SETS
-from src.param_loader import MM
+from src.inputs.cooler_sets import CELL_SETS
+from src.inputs.param_loader import MM
 
 
 # Solid thermal conductivities [W/m-K], shared by fin and pipe.
@@ -183,10 +183,10 @@ CELL_PARAMETERS = {
 
 
 def get_cell_values() -> dict:
-    """The elementary cell of the current run: the preset cell (parameters.GEOMETRY_SET, src/cooler_sets.py)
+    """The elementary cell of the current run: the preset cell (parameters.GEOMETRY_SET, src/inputs/cooler_sets.py)
     with every parameters.py constant that is not None replacing the preset's value. {CellSet attribute: value}."""
     import src.parameters as parameters
-    from src.cooler_sets import CELL_SETS
+    from src.inputs.cooler_sets import CELL_SETS
     preset = CELL_SETS[parameters.GEOMETRY_SET] if parameters.GEOMETRY_SET else None
     values = {}
     for constant, attribute in CELL_PARAMETERS.items():

@@ -26,7 +26,7 @@ matplotlib.use("Agg")                     # figures are rendered into the page, 
 import streamlit as st
 
 import src.parameters as parameters
-from src.cooler_sets import CELL_SETS
+from src.inputs.cooler_sets import CELL_SETS
 from ui.labels import MODES
 from ui.parameter_file import read_parameters
 from ui.presets import cell_defaults
@@ -48,7 +48,7 @@ with st.sidebar:
         st.caption("One cooler in one ambient state: the selected solvers compared, plus the solver benchmarks.")
         preset = st.selectbox("Cooler (standard cell)", list(CELL_SETS), index=list(CELL_SETS).index(parameters.GEOMETRY_SET),
                               format_func=lambda k: CELL_SETS[k].label, key="geometry_set",
-                              help="The elementary cell of the run (src/cooler_sets.py). Every value below can be changed for this run.")
+                              help="The elementary cell of the run (src/inputs/cooler_sets.py). Every value below can be changed for this run.")
     else:
         st.caption("The standard coolers raced against each other over the climate year with one solver.")
         sensitivity_set = st.selectbox("Cooler for the sensitivity study", list(CELL_SETS),

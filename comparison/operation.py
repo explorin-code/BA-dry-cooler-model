@@ -22,7 +22,7 @@ import pandas as pd
 from scipy.optimize import brentq
 
 from comparison import evaluate as ev, sizing
-from src import weather
+from src.inputs import weather
 
 logger = logging.getLogger(__name__)
 

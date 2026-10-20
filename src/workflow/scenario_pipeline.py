@@ -13,7 +13,7 @@ resulting figures.
 Run modes (run_modes.py, set in parameters.py or by main.py's flags):
   insight_mode   -- per-iteration progress + detailed results (DEBUG log
                     level); a short summary per scenario is always logged
-  outputs        -- which of src/outputs.py's catalogue to produce after the
+  outputs        -- which of src/workflow/outputs.py's catalogue to produce after the
                     scenarios: cooler-results / convergence figures and the
                     caching / resolution / annual benchmarks
 """
@@ -22,19 +22,19 @@ import logging
 
 import src.parameters as parameters
 
-from src.operating_conditions import get_operating_conditions
-from src.dry_cooler_physics import get_geometry
-from src.fluid_properties import get_fluid_properties
+from src.inputs.operating_conditions import get_operating_conditions
+from src.inputs.geometry import get_geometry
+from src.thermo.fluid_properties import get_fluid_properties
 from src.solvers import SOLVER_FAMILY, scenario_keys, solve_scenario
-from src.solver_settings import get_solver_settings
-from src.precooling import calc_precooler
-from src.pressure_drop import calc_delta_p_coolant, calc_delta_p_air
-from src.economics import calc_pump_power, calc_fan_power, calc_water_usage
-from src.run_scenario import (format_input_conditions, format_geometry_info,
+from src.inputs.solver_settings import get_solver_settings
+from src.thermo.precooling import calc_precooler
+from src.auxiliaries.pressure_drop import calc_delta_p_coolant, calc_delta_p_air
+from src.auxiliaries.economics import calc_pump_power, calc_fan_power, calc_water_usage
+from src.workflow.run_scenario import (format_input_conditions, format_geometry_info,
                               format_output_conditions, format_economics, calc_pinch, calc_deviation)
 from src.catalogue import run_items
-from src.outputs import OUTPUTS, RunContext
-from src.run_modes import get_run_modes
+from src.workflow.outputs import OUTPUTS, RunContext
+from src.inputs.run_modes import get_run_modes
 
 logger = logging.getLogger(__name__)
 
@@ -112,7 +112,7 @@ def run_scenarios(modes=None):
         results['precooled'] = {'label': "Precooled", 'ops': ops_final, 'result': result_final,
                                 'P_pump': P_pump, 'P_fan': P_fan_final, 'm_dot_ev': m_dot_ev}
 
-    # The selected outputs (figures, benchmarks -- src/outputs.py); the benchmarks run their own fresh solves.
+    # The selected outputs (figures, benchmarks -- src/workflow/outputs.py); the benchmarks run their own fresh solves.
     scenarios = [results['ambient']] + ([results['precooled']] if results['precooled'] else [])
     context = RunContext(geo=geo, settings=settings, modes=modes, scenarios=scenarios)
     results['outputs'] = run_items(OUTPUTS, modes.outputs, args=(context,), logger=logger)

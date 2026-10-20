@@ -2,7 +2,7 @@
 weather.py
 ===========
 The climate data of the project: the hourly weather of the DWD station 03379 München-Stadt, as the derived files in
-climate_data/ (src/build_climate_data.py makes them from the raw DWD download) -> the past year as hourly (T, phi, p),
+climate_data/ (src/inputs/build_climate_data.py makes them from the raw DWD download) -> the past year as hourly (T, phi, p),
 plus representative design points (coldest / median / hottest hour ...) picked from it. Used by BOTH workflows: the
 annual solver benchmark (benchmark_annual.py) and the cooler comparison (comparison/).
 
@@ -20,7 +20,7 @@ from CoolProp.HumidAirProp import HAPropsSI
 
 logger = logging.getLogger(__name__)
 
-CLIMATE_DIR = Path(__file__).resolve().parent.parent / 'climate_data'
+CLIMATE_DIR = Path(__file__).resolve().parent.parent.parent / 'climate_data'
 N_HOURS = 8760
 RH_MAX = 99.0     # [%] cap: at 100 % the property cache's rounding of Y (6 digits) gives phi > 1 in CoolProp
 

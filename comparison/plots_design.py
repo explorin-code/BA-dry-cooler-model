@@ -6,9 +6,9 @@ import matplotlib.patches as mpatches
 import matplotlib.pyplot as plt
 import seaborn as sns
 
-from src.plot_style import TUM_BLUE, TUM_ORANGE
+from src.plots.plot_style import TUM_BLUE, TUM_ORANGE
 from comparison.plots_common import DELTA_UNIT, LABEL, SET_COLOR, SYMBOL, save_figure, target_line
-from src.figures import GEOMETRY
+from src.plots.figures import GEOMETRY
 
 
 def geometries(df, cfg):

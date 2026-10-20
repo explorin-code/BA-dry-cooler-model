@@ -41,7 +41,7 @@ class RunContext:
 # --- figures of the scenarios --------------------------------------------------------------------------------
 
 def _plot_cooler_results(_, ctx):
-    from src.plot_profiles import common_ticks, plot_cooler_results
+    from src.plots.plot_profiles import common_ticks, plot_cooler_results
     n_segments, n_elements = ctx.settings.cell_n_segments, ctx.settings.ntu_n_elements
     ticks = common_ticks([(sc['result'], sc['ops']) for sc in ctx.scenarios], ctx.geo, n_segments, n_elements)
     for sc in ctx.scenarios:                                  # identical axes in the dry and the precooled figure
@@ -51,7 +51,7 @@ def _plot_cooler_results(_, ctx):
 
 
 def _compute_profile_cases(ctx):
-    from src.operating_conditions import ops_like
+    from src.inputs.operating_conditions import ops_like
     from src.solvers import scenario_keys, solve_scenario
     ops_hot = ops_like(ctx.geo, ctx.ops_ambient, T_c_i=ctx.modes.profile_t_coolant)
     result_hot = solve_scenario(ops_hot, ctx.geo, scenario_keys(ctx.modes.solvers), ctx.settings)
@@ -59,7 +59,7 @@ def _compute_profile_cases(ctx):
 
 
 def _plot_profile_grids(cases, ctx):
-    from src import plot_profiles
+    from src.plots import plot_profiles
     n_segments, n_elements = ctx.settings.cell_n_segments, ctx.settings.ntu_n_elements
     plot_profiles.plot_profile_grid(cases, ctx.geo, n_segments, n_elements, normalised=False)
     plot_profiles.plot_profile_grid(cases, ctx.geo, n_segments, n_elements, normalised=True)
@@ -68,7 +68,7 @@ def _plot_profile_grids(cases, ctx):
 
 
 def _plot_convergence(_, ctx):
-    from src.plot_solver import plot_convergence
+    from src.plots.plot_solver import plot_convergence
     for sc in ctx.scenarios:
         plot_convergence(sc['result'], sc['ops'], sc['label'], ctx.settings)
 
@@ -76,54 +76,54 @@ def _plot_convergence(_, ctx):
 # --- benchmarks ----------------------------------------------------------------------------------------------
 
 def _compute_caching(ctx):
-    from src.benchmark_solvers import run_cache_benchmark
+    from src.benchmarks.benchmark_solvers import run_cache_benchmark
     return run_cache_benchmark(ctx.ops_ambient, ctx.geo, ctx.settings, ctx.modes)
 
 
 def _plot_caching(data, ctx):
-    from src.benchmark_solvers import counts_table_latex
-    from src.figures import SOLVER, save_text
-    from src.plot_solver import plot_caching
+    from src.benchmarks.benchmark_solvers import counts_table_latex
+    from src.plots.figures import SOLVER, save_text
+    from src.plots.plot_solver import plot_caching
     plot_caching(data)
     logger.info("  counts table: %s", save_text(SOLVER, 'caching_counts.tex', counts_table_latex(data)))
 
 
 def _compute_resolution(ctx):
-    from src.benchmark_solvers import RESULTS_FILE, run_resolution_benchmark
-    from src.figures import SOLVER, save_data
+    from src.benchmarks.benchmark_solvers import RESULTS_FILE, run_resolution_benchmark
+    from src.plots.figures import SOLVER, save_data
     data = run_resolution_benchmark(ctx.ops_ambient, ctx.geo, ctx.settings, ctx.modes)
     save_data(SOLVER, RESULTS_FILE, data)                  # a long run is never lost to a plotting problem
     return data
 
 
 def _plot_resolution(data, ctx):
-    from src.plot_solver import plot_resolution
+    from src.plots.plot_solver import plot_resolution
     plot_resolution(data, ctx.settings)
 
 
 def _compute_annual(ctx):
-    from src.benchmark_annual import run_annual_benchmark
+    from src.benchmarks.benchmark_annual import run_annual_benchmark
     return run_annual_benchmark(ctx.geo, ctx.settings, ctx.modes)
 
 
 def _plot_annual(data, ctx):
-    from src.plot_solver import plot_annual
+    from src.plots.plot_solver import plot_annual
     plot_annual(data)
 
 
 def _compute_accuracy(ctx):
-    from src.benchmark_accuracy import run_accuracy_sweep
+    from src.benchmarks.benchmark_accuracy import run_accuracy_sweep
     return run_accuracy_sweep(ctx.ops_ambient, ctx.geo, ctx.settings, ctx.modes)
 
 
 def _plot_accuracy(data, ctx):
-    from src.benchmark_accuracy import plot_accuracy_sweep
+    from src.benchmarks.benchmark_accuracy import plot_accuracy_sweep
     plot_accuracy_sweep(data)
     plot_accuracy_sweep(data, panels=('pinch',), name='accuracy_sweep_pinch')
 
 
 def _log_accuracy(data, ctx):
-    from src.benchmark_accuracy import summary_lines
+    from src.benchmarks.benchmark_accuracy import summary_lines
     return summary_lines(data)
 
 

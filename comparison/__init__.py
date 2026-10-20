@@ -1,8 +1,8 @@
 """
-comparison -- the cooler comparison: the standard coolers (src/cooler_sets.py) raced against each other.
+comparison -- the cooler comparison: the standard coolers (src/inputs/cooler_sets.py) raced against each other.
 
 Every cooler cell is scaled to the same water flow (sizing.py: a fixed tube count per cell, N_t_ref in cooler_sets.py,
-with common rows and one common tube length) and then analysed in representative ambient states and over the climate year (src/weather.py).
+with common rows and one common tube length) and then analysed in representative ambient states and over the climate year (src/inputs/weather.py).
 
   config.py        `settings()` = parameters.py read once per run into a Settings object (`cfg`, the first argument of
                    every function that needs it), and the literature ranges

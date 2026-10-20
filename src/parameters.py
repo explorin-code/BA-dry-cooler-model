@@ -1,7 +1,7 @@
 """
 parameters.py
 ==============
-Raw numerical inputs for a run. No logic -- see operating_conditions.py, dry_cooler_physics.py and
+Raw numerical inputs for a run. No logic -- see operating_conditions.py, geometry.py and
 solver_settings.py (solver comparison) and comparison/config.py (cooler comparison) for how they are used.
 
 The file is also the source of the GUI (gui.py builds its form from it): every section header
@@ -59,7 +59,7 @@ PHI_AIR_PERCENT = 60.0          # inlet relative humidity [%] -- give at most on
 Y_AIR = None                    # inlet humidity ratio Y [kg water/kg dry air]
 
 # --- Cooler [solver]: elementary cell -------------------------------------
-# GEOMETRY_SET picks the standard cell (src/cooler_sets.py); any value below that is not None replaces the
+# GEOMETRY_SET picks the standard cell (src/inputs/cooler_sets.py); any value below that is not None replaces the
 # preset's value for this run (in the GUI the fields show the preset and can be changed). Lengths in mm.
 GEOMETRY_SET = 'P2'             # 'P1' dense (Wang) | 'P2' medium (Kayansayan 5) | 'P3' open (Kayansayan 3)
 D_TUBE_OUTER_MM = None          # tube outer diameter d                      [mm]
@@ -115,7 +115,7 @@ CELL_MAX_ITER = 1000            # iteration cap of Cell (raises if reached)
 # =====================================================================================================
 
 # --- Comparison [compare]: coolers and module -----------------------------
-COMPARE_SETS = ['P1', 'P2', 'P3']   # the coolers compared (src/cooler_sets.py)
+COMPARE_SETS = ['P1', 'P2', 'P3']   # the coolers compared (src/inputs/cooler_sets.py)
 COMPARE_SOLVER = 'ntu_table'    # solver of every analysis (Cell is ~100x slower: use the year stride)
 COMPARE_M_COOLANT = 1.0         # water mass flow per module [kg/s]; more flow = more tubes of the same kind
 COMPARE_RE_TUBE = 5000          # reference tube Reynolds number of the tubes / wall studies

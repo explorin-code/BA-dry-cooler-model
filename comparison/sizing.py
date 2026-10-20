@@ -14,8 +14,8 @@ import logging
 import math
 
 from comparison import config, evaluate as ev
-from src.cooler_sets import CELL_SETS
-from src.fluid_properties import get_fluid_properties
+from src.inputs.cooler_sets import CELL_SETS
+from src.thermo.fluid_properties import get_fluid_properties
 from src.quiet import quiet_solvers
 
 logger = logging.getLogger(__name__)

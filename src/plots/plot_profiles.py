@@ -12,7 +12,7 @@ The profile figures. Every panel stands on its own (title, axis labels, legend),
 
 Axes: k spans at least +-5 % around its mean and dQ/dL starts at zero, so the figures show how LITTLE k varies and how
 large dQ/dL is. Cell's and NTU's profiles are genuinely computed; LMTD's is a reconstruction from its scalars (the
-log-mean profile, analysis.py, docs/model-notes.md). The path axis has no labels: only the row changes are marked.
+log-mean profile, profiles.py, docs/model-notes.md). The path axis has no labels: only the row changes are marked.
 """
 
 import numpy as np
@@ -21,11 +21,11 @@ from matplotlib.gridspec import GridSpec
 from matplotlib.lines import Line2D
 
 from src.solvers import SOLVER_FAMILY, ScenarioResult
-from src.analysis import calc_lmtd_profile, calc_ntu_profile, calc_cell_profile
-from src.plot_style import (COLOR_CELL, COLOR_LMTD, COLOR_NTU, TUM_BLUE, TUM_BLUE_540, TUM_GREY_50, TUM_GREY_80,
+from src.solvers.profiles import calc_lmtd_profile, calc_ntu_profile, calc_cell_profile
+from src.plots.plot_style import (COLOR_CELL, COLOR_LMTD, COLOR_NTU, TUM_BLUE, TUM_BLUE_540, TUM_GREY_50, TUM_GREY_80,
                             family_color, lighten_color, nice_tick_sets, draw_text_grid, in_large_format, in_solver_print_style, print_context, PRINT_WIDTH, PRINT_DPI, PRINT_LW, PRINT_DASHED)
-from src.figures import save_figure, slug, SOLVER
-from src.run_scenario import input_condition_cells, economics_cells, output_condition_cells
+from src.plots.figures import save_figure, slug, SOLVER
+from src.workflow.run_scenario import input_condition_cells, economics_cells, output_condition_cells
 
 COLOR_K = TUM_GREY_80      # dark gray -- neutral, not tied to hot/cold identity
 COLOR_DQDL = TUM_BLUE_540  # dark blue -- distinct from the LMTD/NTU/Cell colours

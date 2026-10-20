@@ -24,14 +24,23 @@ venv/bin/streamlit run gui.py               # the same two workflows with forms
 | Extras | ambient + precooled scenario, solver benchmarks (caching, resolution, annual, accuracy) | geometry, fan control, water and cost, sensitivity, rows, tubes, wall thickness |
 
 Both read `src/parameters.py` (the GUI builds its forms from it; section headers are tagged `[solver]`, `[compare]`
-or `[both]`) and share the cooler cells (`src/cooler_sets.py`) and the climate data (`src/weather.py`).
+or `[both]`) and share the cooler cells (`src/inputs/cooler_sets.py`) and the climate data (`src/inputs/weather.py`).
 
 ## Layout
 
 ```
 main.py, gui.py       entry points (command line / Streamlit; the GUI's parts are in ui/)
-src/                  the model: geometry, heat transfer, solvers (src/solvers/), pressure drop, precooling, economics, weather,
-                      the solver-comparison pipeline and its outputs, the solver benchmarks, plot style and figure helpers
+src/                  the model and the solver comparison, one package per purpose (each has a docstring in its __init__.py):
+  parameters.py         ALL inputs (the GUI builds its forms from it)
+  inputs/               what a run is given: settings, operating conditions, geometry, the cells P1-P3, the climate year
+  thermo/               thermodynamics: fluid and humid-air properties (CoolProp), the pad's moist-air relations
+  heat_transfer_core.py heat-transfer correlations and the overall k (self-contained apart from the properties)
+  auxiliaries/          fluid mechanics: pressure drops; fan and pump power, pad water
+  solvers/              LMTD, NTU (field / table) and Cell, and the profiles reconstructed from their results
+  workflow/             the solver-comparison pipeline, its output catalogue and the display of a solved scenario
+  benchmarks/           caching, resolution, annual and accuracy benchmarks
+  plots/                figures of the solver comparison, plot style, saving figures
+  catalogue.py, formatting.py, profiling.py, quiet.py   small shared helpers
 comparison/           the cooler comparison (start with __init__.py and analyses.py)
 thesis_figures/       chapter-3 schematics; the rendered figures go to out/ (gitignored)
 climate_data/         derived hourly weather, DWD station München-Stadt (03379), see its README

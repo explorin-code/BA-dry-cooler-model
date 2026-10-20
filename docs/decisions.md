@@ -75,7 +75,7 @@ change.
 - `src/solvers/` is a package (`results`, `common`, `field`, `relaxation`, `lmtd`, `ntu_field`, `ntu_table`, `ntu`,
   `cell`, `scenario`); `ScenarioResult.results` is a dict of the selected solvers (`.reference` = the most
   detailed), selected by the keys `cell_2d` / `cell_3d`, `ntu_field` / `ntu_table`.
-- `cooler_sets.py` holds the cells P1-P3; `dry_cooler_physics.get_geometry` builds the geometry from the preset
+- `cooler_sets.py` holds the cells P1-P3; `geometry.get_geometry` builds the geometry from the preset
   `GEOMETRY_SET` plus overrides (`CELL_PARAMETERS`, `get_cell_values`).
 - `weather.py` holds the climate year and design points for both workflows; `benchmark_annual.py` uses it with the
   hour's measured station pressure.

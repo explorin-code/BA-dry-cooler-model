@@ -24,9 +24,9 @@ units of the inputs. All inputs are in `src/parameters.py` (the GUI builds its f
 
 `python main.py solver` (one cooler, the solvers side by side):
 
-1. `main.py` reads the options and calls `src/scenario_pipeline.run_scenarios`.
+1. `main.py` reads the options and calls `src/workflow/scenario_pipeline.run_scenarios`.
 2. The inputs come from `src/parameters.py`: `get_geometry()` builds the cooler (a preset cell P1-P3 from
-   `src/cooler_sets.py` plus any
+   `src/inputs/cooler_sets.py` plus any
    override), `get_operating_conditions(geo)` the air and water state, `get_solver_settings()` the tolerances and
    resolutions.
 3. `solvers.solve_scenario` runs every selected solver on the dry operating point. All three iterate the same loop:
@@ -39,7 +39,7 @@ units of the inputs. All inputs are in `src/parameters.py` (the GUI builds its f
    and
    `precooling.calc_precooler` builds the precooled operating point, which is solved the same way.
 5. Pressure drops (`pressure_drop`), fan and pump power and pad water (`economics`) are computed from the results.
-6. The selected outputs (the catalogue in `src/outputs.py`) draw the figures (`plot_*.py`), saved through
+6. The selected outputs (the catalogue in `src/workflow/outputs.py`) draw the figures (`plot_*.py`), saved through
    `figures.save_figure`.
 
 `python main.py compare <analysis>` (the coolers over the climate year): `comparison/runner.run_analyses` runs the
@@ -52,11 +52,11 @@ solver -> pressure drops -> powers -> one result row), stores it as CSV, and plo
 
 ```python
 from src import solvers
-from src.dry_cooler_physics import get_geometry
-from src.operating_conditions import get_operating_conditions
-from src.pressure_drop import calc_delta_p_air
-from src.economics import calc_fan_power
-from src.solver_settings import get_solver_settings
+from src.inputs.geometry import get_geometry
+from src.inputs.operating_conditions import get_operating_conditions
+from src.auxiliaries.pressure_drop import calc_delta_p_air
+from src.auxiliaries.economics import calc_fan_power
+from src.inputs.solver_settings import get_solver_settings
 
 geo = get_geometry()                                        # the cell GEOMETRY_SET of parameters.py (P2) and its overrides
 ops = get_operating_conditions(geo, T_a_i=30.0, phi=0.4)    # any operating input can be overridden here
@@ -70,7 +70,7 @@ print(dp, "Pa;", calc_fan_power(ops, r.T_a_o, dp), "W")
 
 `python -c` from the repository root works; the first `ntu_table` call builds and stores its table (about 20 s at 20
 elements). A cooler
-that is not one of the presets is a `CellSet` (`src/cooler_sets.py`) or overrides in `parameters.py`.
+that is not one of the presets is a `CellSet` (`src/inputs/cooler_sets.py`) or overrides in `parameters.py`.
 
 ## Glossary
 
@@ -89,32 +89,20 @@ that is not one of the presets is a `CellSet` (`src/cooler_sets.py`) or override
 | cache no / cold / warm | CoolProp lookups not cached / cache empty and filling / cache filled |
 | catalogue, `Item` | a list of outputs or analyses, each a compute, a plot and a log step (`src/catalogue.py`) |
 
-## For the follow-up project (cooling towers, once-through water cooling)
+## Where things are
 
-The next project models cooling towers and running-water cooling and compares their performance with the dry cooler. The
-thermodynamics differ (evaporation into the air stream, a driving force set by the wet-bulb temperature, no finned-tube geometry), so
-this repository is a starting point, not a base class. What carries over and what does not:
+One package per purpose under `src/` (each `__init__.py` says what its files do); `comparison/` is the cooler comparison.
 
-- **Carries over as it is**
-  - `fluid_properties.py` (CoolProp water and humid air, with the lookup cache) and the moist-air functions in `precooling.py`
-    (`calc_Y`, `calc_h`, the cooling limit = wet-bulb temperature, humidity ratio and enthalpy).
-  - `weather.py` and `climate_data/` (the Munich year, the representative states, wet-bulb temperature).
-  - `economics.py` (pump and fan power from a pressure drop, pad water) and the cost columns of `comparison/operation.add_costs`.
-  - The comparison framework: `comparison/runner.py`, the catalogue in `analyses.py`, the `Settings` object, the year loop and the fan
-    control in `operation.py`, and the print-size figures in `plots_print.py`; the figure conventions in `src/plot_style.py`.
-- **Specific to the finned-tube dry cooler (to be replaced by the tower's counterparts)**: `dry_cooler_physics.py` (geometry),
-  `cooler_sets.py` and `comparison/sizing.py`, `heat_transfer_core.py` (correlations, fin efficiency, k), the air-side pressure drop
-  of `pressure_drop.py` (Wang), and `src/solvers/`. A tower needs its own transfer model (typically an enthalpy-based
-  Merkel / effectiveness-NTU description of the fill) and its own pressure drop, and replaces the geometry; once-through cooling
-  has no fan and needs a water-side heat exchanger and a source-water temperature series instead of the air climate.
-- **The seam for a comparison**: `comparison/evaluate.run_point(cfg, geo, ops, method, mode)` turns one geometry and one ambient state into one
-  result row. A tower model that returns a row with the same columns -- `T_c_o`, `Q_kW`, `pinch`, `P_fan`, `P_pump`, `P_total`, `m_dot_ev`
-  (evaporation; add blowdown for a tower), `target_met`, plus its own geometry and mass columns for the cost model -- can be fed to the
-  existing year loops, the fan control and the cost and figure code. The common basis of a comparison is the one used here: 1 kg/s of water
-  from 37 °C to the 25 °C target over the Munich climate year; `pinch` is defined against the AMBIENT DRY-BULB temperature for every
-  cooler type (a tower's approach to the wet-bulb temperature is a different number and should be reported separately).
-- **Not yet general**: the comparison's cooler list (`config.sets`, `cooler_sets.py`) and `operation.control_point`'s face-velocity search
-  are written for the finned-tube coolers; the cost model prices aluminium and copper write-off only.
+| purpose | where |
+|---|---|
+| all inputs | `src/parameters.py`; `src/inputs/` turns them into settings, operating conditions, geometry; the cells P1-P3 and the climate year |
+| thermodynamics | `src/thermo/`: fluid and humid-air properties (CoolProp), the pad's moist-air relations |
+| heat transfer | `src/heat_transfer_core.py`: correlations, fin efficiency, the overall k; needs only the fluid properties |
+| fluid mechanics and auxiliaries | `src/auxiliaries/`: pressure drops, fan and pump power, pad water |
+| solvers | `src/solvers/`: LMTD, NTU, Cell and the profiles reconstructed from them |
+| solver-comparison workflow | `src/workflow/` (pipeline, output catalogue), `src/benchmarks/`, `src/plots/` |
+| cooler comparison | `comparison/`: one operating point (`evaluate.run_point`) becomes one result row; the year loops, studies, costs and figures build on those rows |
+| the next project | a cooling-tower / once-through-water comparison is planned by another person; what to reuse is theirs to decide, the module list above says what each part does |
 
 ## Status
 
@@ -133,7 +121,7 @@ this repository is a starting point, not a base class. What carries over and wha
 
 | what | where | note |
 |---|---|---|
-| climate year | `climate_data/` (tracked) | DWD station 03379 München-Stadt, 2025-10-09 .. 2026-10-08; rebuilt from the raw download by `python -m src.build_climate_data` (raw folder `raw_climate_data/`, not tracked) |
+| climate year | `climate_data/` (tracked) | DWD station 03379 München-Stadt, 2025-10-09 .. 2026-10-08; rebuilt from the raw download by `python -m src.inputs.build_climate_data` (raw folder `raw_climate_data/`, not tracked) |
 | NTU tables | `cache/ntu_tables/` (ignored) | built on first use, once per row count: 110-230 s each at 60 elements; `NTU_TABLE_VERSION` forces a rebuild; the first `compare` run builds all that it needs |
 | stored results | `output/comparison/*.csv`, `thesis_figures/out/ch4_results/solver/*.pkl` (ignored) | what `--plots-only` and `figures.load_data` redraw from; delete to force a recomputation |
 | figures | `thesis_figures/out/` (ignored) | the working output of every run; the figures in the thesis project are the copies of the submission |
@@ -189,6 +177,6 @@ figures need no new run. The caching benchmark times depend on the machine.
   objects (`comparison.config.Settings`, `SolverSettings`, `RunModes`), never module state read deep inside the model.
 - Fixed geometry: the tube counts are the cells' `N_t_ref` (34 / 32 / 30), independent of every operating input.
 - Notation: thesis symbols everywhere a user sees them (`docs/notation.md`). Colours: TUM Corporate Design
-  (`src/plot_style.py`).
+  (`src/plots/plot_style.py`).
 - Figures: print size 6.9 in wide at 300 dpi, no titles, styles as contexts (`docs/workflows.md`, Figure style).
 - Logging: `logging.getLogger(__name__)`, no `print`.

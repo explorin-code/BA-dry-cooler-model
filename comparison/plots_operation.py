@@ -8,7 +8,7 @@ import numpy as np
 import pandas as pd
 
 from comparison.plots_common import LABEL, SET_COLOR, mode_color, save_figure, target_line, year_figure
-from src.plot_style import TUM_ACCENT_BLUE, TUM_GREY_50, TUM_IVORY, lighten_color
+from src.plots.plot_style import TUM_ACCENT_BLUE, TUM_GREY_50, TUM_IVORY, lighten_color
 
 
 def ambient_cases(df, cfg):
@@ -130,7 +130,7 @@ def fan_curves(control, year, cfg):
     """Fan curves w_fr(T_a,i), P_fan(T_a,i) per set (dry dark, precooled bright), duration curve of the
     fan power, and the check of the curve-based schedule against the solved control."""
     from comparison import fan_curve
-    from src import weather
+    from src.inputs import weather
     year = weather.add_wet_bulb(year)
     curves = {k: fan_curve.FanCurve(cfg, control, k) for k in cfg.sets}
     sched = {k: fan_curve.schedule(curves[k], year) for k in cfg.sets}

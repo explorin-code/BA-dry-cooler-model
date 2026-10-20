@@ -3,7 +3,7 @@ build_climate_data.py
 ======================
 Derives the project's climate files (climate_data/) from the raw DWD download (raw_climate_data/, not part of the
 project -- it can be deleted once the files exist; to rebuild, put the DWD "stundenwerte_TF_<station>_akt" folder
-back and run `python -m src.build_climate_data`).
+back and run `python -m src.inputs.build_climate_data`).
 
   munich_past_year_<from>_to_<to>.csv     the last 8760 hours (365 days) of the data -- what every annual run uses
   munich_all_available_<from>_to_<to>.csv every hour of the download (gaps filled, flagged)
@@ -19,7 +19,7 @@ from pathlib import Path
 
 import pandas as pd
 
-ROOT = Path(__file__).resolve().parent.parent
+ROOT = Path(__file__).resolve().parent.parent.parent
 RAW_DIR = ROOT / 'raw_climate_data'
 CLIMATE_DIR = ROOT / 'climate_data'
 N_HOURS = 8760
@@ -58,7 +58,7 @@ def monthly_statistics(df: pd.DataFrame) -> pd.DataFrame:
 
 def build(raw_dir=RAW_DIR, out_dir=CLIMATE_DIR):
     """Rebuilds the derived files of climate_data/ from the raw DWD download: the past year and all available hours, the monthly statistics and the design points. Returns the hourly table."""
-    from src import weather                                        # design points use the project's definitions
+    from src.inputs import weather                                        # design points use the project's definitions
     df = read_raw(raw_dir)
     out_dir.mkdir(exist_ok=True)
     for old in out_dir.glob('munich_*.csv'):

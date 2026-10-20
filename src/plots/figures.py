@@ -17,7 +17,7 @@ import pickle
 import re
 from pathlib import Path
 
-OUTPUT_DIR = Path(__file__).resolve().parent.parent / 'thesis_figures' / 'out'
+OUTPUT_DIR = Path(__file__).resolve().parent.parent.parent / 'thesis_figures' / 'out'
 CH3 = 'ch3_methodology'
 SOLVER = 'ch4_results/solver'
 COOLER = 'ch4_results/cooler_performance'

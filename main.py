@@ -11,7 +11,7 @@ Entry point with two workflows (the GUI, gui.py, has the same two modes):
                                      year with ONE solver (COMPARE_SOLVER): geometry, fan control, sensitivity ...
 
 Solver-comparison run modes default to parameters.py (SOLVERS, INSIGHT_MODE, SOLVER_OUTPUTS: the catalogue of
-src/outputs.py); each can be overridden per run:
+src/workflow/outputs.py); each can be overridden per run:
     python main.py --no-insight --outputs                   # fast: summary only
     python main.py solver --cooler P3                       # the P3 cell instead of the preset
     python main.py solver --solvers lmtd ntu_table          # only these solvers (lmtd ntu_field ntu_table cell_2d cell_3d)
@@ -33,8 +33,8 @@ import time
 import matplotlib.pyplot as plt
 
 import src.parameters as parameters
-from src.cooler_sets import CELL_SETS
-from src.outputs import OUTPUTS
+from src.inputs.cooler_sets import CELL_SETS
+from src.workflow.outputs import OUTPUTS
 from src.solvers import SOLVER_LABELS
 
 WORKFLOWS = ('solver', 'compare')
@@ -76,8 +76,8 @@ def setup_logging(insight_mode: bool = False):
 
 def run_solver(args):
     """Runs the solver comparison with the options of the command line."""
-    from src.run_modes import get_run_modes
-    from src.scenario_pipeline import run_scenarios
+    from src.inputs.run_modes import get_run_modes
+    from src.workflow.scenario_pipeline import run_scenarios
     if args.cooler:
         parameters.GEOMETRY_SET = args.cooler
     modes = get_run_modes(insight_mode=args.insight, outputs=args.outputs, solvers=args.solvers,

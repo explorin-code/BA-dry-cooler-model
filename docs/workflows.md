@@ -4,12 +4,12 @@ Everything runs in one of two workflows: `python main.py solver|compare` (defaul
 (radio button
 at the top of the sidebar; own parameter groups and run button each).
 
-- **Solver comparison** (`src/`): ONE cooler in one ambient state, the SELECTED solvers (`SOLVERS`: `lmtd`, `ntu_field`,
+- **Solver comparison** (`src/workflow/`): ONE cooler in one ambient state, the SELECTED solvers (`SOLVERS`: `lmtd`, `ntu_field`,
   `ntu_table`, `cell_2d`,
   `cell_3d`; the most detailed one is the reference for deviations and for the precooling decision), an ambient and a
   precooled
   scenario, and the solver benchmarks. No prices. The cooler is a standard cell (`GEOMETRY_SET` P1 / P2 / P3,
-  `src/cooler_sets.py`); every cell value
+  `src/inputs/cooler_sets.py`); every cell value
   can be overridden (`None` = preset); module = `N_TUBES` x `N_ROWS` x `HEIGHT_MM`. Defaults: 1 kg/s, 2000 mm tubes, 6
   rows,
   `N_TUBES = None` = the cell's fixed reference count `CellSet.N_t_ref` (P1 34 / P2 32 / P3 30, see
@@ -17,7 +17,7 @@ at the top of the sidebar; own parameter groups and run button each).
 - **Cooler comparison** (`comparison/`): the standard coolers `COMPARE_SETS` scaled to the same water flow and compared
   over the climate
   year with ONE solver (`COMPARE_SOLVER`), see cooler-comparison.md.
-- **Shared**: `src/cooler_sets.py` (P1-P3), `src/weather.py` (the Munich climate year), coolant temperatures and target,
+- **Shared**: `src/inputs/cooler_sets.py` (P1-P3), `src/inputs/weather.py` (the Munich climate year), coolant temperatures and target,
   the pad path and prices.
   The section headers of `parameters.py` carry the mode, `# --- Name [solver|compare|both]: ... ---`; the GUI builds its
   forms from them.
@@ -26,15 +26,15 @@ at the top of the sidebar; own parameter groups and run button each).
 
 - `src/catalogue.py`: `Item(key, title, compute, plot, log)` and `run_items`. Both workflows offer their outputs /
   analyses as `Item` lists
-  (`src/outputs.py`, `comparison/analyses.py`). To add one, append an `Item`; the selection lists, the CLI and the GUI
+  (`src/workflow/outputs.py`, `comparison/analyses.py`). To add one, append an `Item`; the selection lists, the CLI and the GUI
   follow.
-- `src/figures.py`: `save_figure(fig, folder, name, title)` writes the PNG to `thesis_figures/out/<folder>/`. The
+- `src/plots/figures.py`: `save_figure(fig, folder, name, title)` writes the PNG to `thesis_figures/out/<folder>/`. The
   folders follow the thesis chapters:
   `ch3_methodology/` (schematics), `ch4_results/solver/`, `ch4_results/cooler_performance/`, `ch4_results/geometry/`
   (`figures.CH3 / SOLVER / COOLER / GEOMETRY`).
   `save_data` / `load_data` keep raw results next to the figures (`*.pkl`), so a long run is never lost and figures can
   be redrawn without it.
-- `src/plot_style.py`: the TUM Corporate Design colours (`TUM_*`; LMTD green, NTU blue, NTU table light blue, Cell
+- `src/plots/plot_style.py`: the TUM Corporate Design colours (`TUM_*`; LMTD green, NTU blue, NTU table light blue, Cell
   orange, Cell 2D a tint; the comparison uses
   P1 blue, P2 orange, P3 green; `#0065BD` is also the Streamlit `primaryColor`), `print_context()` for the print-size
   graphs and `large_format_context()` /
@@ -119,7 +119,7 @@ with `gc.collect()` before each run. About 6.5 min with all five solvers (the bu
 `resolution_results.pkl`.
 
 **Annual benchmark** (`benchmark_annual.py`): the selected solvers over the 8760 hourly operating points of the climate
-year (`src/weather.py` or `ANNUAL_WEATHER_CSV`): LMTD,
+year (`src/inputs/weather.py` or `ANNUAL_WEATHER_CSV`): LMTD,
 NTU field and NTU table every hour, Cell (2D / 3D) every `ANNUAL_CELL_STRIDE`-th hour (4) with its year total
 extrapolated (hatched bar, "≈"; a solver over
 `ANNUAL_TIME_BUDGET_S` (120 s; 0 = no limit) is stopped and extrapolated the same way). Only the inlet air (T, phi, p)

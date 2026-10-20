@@ -34,8 +34,8 @@ from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 from comparison import operation, variation
 from comparison.config import TARGET_TOL
 from comparison.plots_common import SET_COLOR, save_figure
-from src import weather
-from src.plot_style import PRINT_DASHED, PRINT_DPI, PRINT_LW, PRINT_WIDTH, TUM_GREY_20, TUM_GREY_50, TUM_GREY_80, lighten_color, print_context
+from src.inputs import weather
+from src.plots.plot_style import PRINT_DASHED, PRINT_DPI, PRINT_LW, PRINT_WIDTH, TUM_GREY_20, TUM_GREY_50, TUM_GREY_80, lighten_color, print_context
 
 HEIGHT = 2.5                                  # one row of graphs [in]
 BIN = 2.0                                     # temperature bins of the year curves [K]

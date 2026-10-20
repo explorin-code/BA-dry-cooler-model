@@ -13,7 +13,7 @@ import src.parameters as parameters
 
 @pytest.fixture(autouse=True)
 def restore_parameters(tmp_path, monkeypatch):
-    from src import figures
+    from src.plots import figures
     monkeypatch.setattr(figures, "OUTPUT_DIR", tmp_path / "figures")      # no test writes into thesis_figures/
     saved = {name: copy.deepcopy(value) for name, value in vars(parameters).items() if name.isupper()}
     yield
@@ -24,9 +24,9 @@ def restore_parameters(tmp_path, monkeypatch):
 
 @pytest.fixture
 def outputs(tmp_path, monkeypatch):
-    """Redirects the comparison's CSV output and every figure (src/figures.py)."""
+    """Redirects the comparison's CSV output and every figure (src/plots/figures.py)."""
     from comparison import runner
-    from src import figures
+    from src.plots import figures
     monkeypatch.setattr(runner, "DATA_DIR", tmp_path / "csv")
     monkeypatch.setattr(figures, "OUTPUT_DIR", tmp_path / "figures")
     return tmp_path

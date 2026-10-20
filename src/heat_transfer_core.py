@@ -9,6 +9,9 @@ final Re/Nu/Pr/alpha numbers).
 
 Layout: air-side helpers (including the inactive-but-ready in-line fin
 variant), then coolant-side helpers, then the two orchestrators.
+
+Self-contained: apart from the fluid properties it is passed (and the timing hooks of profiling.py) it needs nothing from the
+rest of the project; the Reynolds numbers it defines are also used by auxiliaries/pressure_drop.py.
 """
 
 from math import log10, log, tanh

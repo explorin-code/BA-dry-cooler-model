@@ -32,14 +32,14 @@ import time
 import dataclasses
 
 
-import src.fluid_properties as fluid_properties
+import src.thermo.fluid_properties as fluid_properties
 import src.solvers as solvers
 from src.solvers import ntu_table
 from src.solvers.common import mean_states
 from src import profiling
 from src.formatting import machine_info
 from src.quiet import silence_all
-from src.plot_style import (TUM_ACCENT_BLUE, TUM_BLUE, TUM_BLUE_540, TUM_GREY_20, TUM_IVORY,
+from src.plots.plot_style import (TUM_ACCENT_BLUE, TUM_BLUE, TUM_BLUE_540, TUM_GREY_20, TUM_IVORY,
                             solver_color)
 
 logger = logging.getLogger(__name__)

@@ -39,14 +39,14 @@ of the comparison mode, CLI `--sensitivity-set`).
 
 ## Inputs
 
-- **Weather** (`src/weather.py`): DWD station 03379 München-Stadt, derived files in `climate_data/` (README there; made
-  by `python -m src.build_climate_data` from the raw download, kept outside the repo in
+- **Weather** (`src/inputs/weather.py`): DWD station 03379 München-Stadt, derived files in `climate_data/` (README there; made
+  by `python -m src.inputs.build_climate_data` from the raw download, kept outside the repo in
   `raw_climate_data/`). The year is the last 365 days of the file, 2025-10-09 .. 2026-10-08 (the file has no full
   calendar year), UTC, 51 interpolated hours, RH capped at 99 % (100 % breaks the
   property cache), the measured station pressure (about 955 hPa) used as `p_a`. Representative cases: coldest, median,
   P95, P99, hottest, `wettest_warm` (highest wet-bulb) and `design`
   (`COMPARE_DESIGN_T_AIR` / `_PHI_PERCENT`, 20 °C / 60 %).
-- **Elementary cells** (`src/cooler_sets.py`): P1 Wang & Chi (2000) sample 2, P2 Kayansayan (1994) coil 5, P3 Kayansayan
+- **Elementary cells** (`src/inputs/cooler_sets.py`): P1 Wang & Chi (2000) sample 2, P2 Kayansayan (1994) coil 5, P3 Kayansayan
   coil 3. Only the elementary cell (d, s_f, delta_f, s_t, s_l, fin type,
   materials) is from the sources. Assumptions: the tube wall (0.5 mm; P3 1 mm) and with it d_i; the collar thickness
   equals the fin thickness (the collar is the fin sheet turned up around the tube);

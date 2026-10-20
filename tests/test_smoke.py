@@ -6,10 +6,10 @@ import numpy as np
 import pytest
 
 import src.parameters as parameters
-from src.cooler_sets import CELL_SETS
-from src.dry_cooler_physics import get_geometry
-from src.run_modes import get_run_modes
-from src.scenario_pipeline import run_scenarios
+from src.inputs.cooler_sets import CELL_SETS
+from src.inputs.geometry import get_geometry
+from src.inputs.run_modes import get_run_modes
+from src.workflow.scenario_pipeline import run_scenarios
 
 
 FAST_SOLVERS = ['lmtd', 'ntu_field']          # Cell 3D costs seconds per scenario: only the tests that need it ask for it
@@ -94,7 +94,7 @@ def test_caching_and_resolution_benchmarks():
                                   solvers=['lmtd', 'ntu_field', 'cell_2d']))['outputs']
     assert set(results['caching']) == {'lmtd', 'ntu_field', 'cell_2d'}
     assert all(set(per_mode) == {'no cache', 'cold cache', 'warm cache'} for per_mode in results['caching'].values())
-    from src.benchmark_solvers import counts_table_latex
+    from src.benchmarks.benchmark_solvers import counts_table_latex
     table = counts_table_latex(results['caching'])
     assert table.count("\\\\\n") == 5 and 'Cell (2D)' in table and r'\begin{tabular}' in table
     resolution = results['resolution']
@@ -115,8 +115,8 @@ def test_annual_benchmark_runs_and_extrapolates():
 
 
 def test_annual_benchmark_without_budget_solves_everything_and_draws_the_deviation(tmp_path):
-    from src.benchmark_annual import RESULTS_FILE
-    from src.figures import SOLVER, load_data
+    from src.benchmarks.benchmark_annual import RESULTS_FILE
+    from src.plots.figures import SOLVER, load_data
     results = run_scenarios(modes(outputs=['annual'], solvers=['lmtd', 'cell_2d'], annual_time_budget=0.0,
                                   annual_cell_stride=730))['outputs']['annual']
     assert results['solvers']['LMTD']['complete'] and results['solvers']['LMTD']['n_done'] == 8760
@@ -129,7 +129,7 @@ def test_annual_benchmark_without_budget_solves_everything_and_draws_the_deviati
 
 
 def test_accuracy_sweep_compares_to_the_reference():
-    from src.benchmark_accuracy import deviations
+    from src.benchmarks.benchmark_accuracy import deviations
     sweep = run_scenarios(modes(outputs=['accuracy'], solvers=['lmtd', 'ntu_field', 'cell_2d'],
                                 accuracy_t_coolant=[37.0, 80.0]))['outputs']['accuracy']
     assert sweep['reference'] == 'cell_2d' and sweep['x'] == [37.0, 80.0] and sweep['x_run'] == 37.0
@@ -280,10 +280,11 @@ def test_comparison_settings_are_read_when_requested_not_at_import():
 # --- instrumentation -----------------------------------------------------------------------------------------
 
 def test_profiling_counts_and_cache_switch_restore_everything():
-    from src import fluid_properties, profiling, solvers
-    from src.dry_cooler_physics import get_geometry
-    from src.operating_conditions import get_operating_conditions
-    from src.solver_settings import get_solver_settings
+    from src.thermo import fluid_properties
+    from src import profiling, solvers
+    from src.inputs.geometry import get_geometry
+    from src.inputs.operating_conditions import get_operating_conditions
+    from src.inputs.solver_settings import get_solver_settings
     geo = get_geometry()
     ops, settings = get_operating_conditions(geo=geo), get_solver_settings()
     lookups_before = (fluid_properties._fluid_lookup, fluid_properties._air_lookup)
@@ -312,7 +313,7 @@ def test_solver_figures_are_saved_with_their_titles(tmp_path):
 
 def test_shared_helpers():
     from src.formatting import fmt_duration, fmt_ms
-    from src import weather
+    from src.inputs import weather
     assert fmt_ms(0.04) == "0.04 ms" and fmt_ms(22632.14) == "22632.1 ms"
     assert fmt_duration(0.5) == "500 ms" and fmt_duration(90) == "90.0 s" and fmt_duration(600) == "10.0 min"
     states = weather.hourly_states(weather.load_year(), stride=24)

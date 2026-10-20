@@ -12,7 +12,7 @@ import pandas as pd
 
 from comparison import evaluate as ev, operation, plots_design, plots_operation, plots_print, rows, sensitivity, sizing, tubes, variation, wall
 from src.catalogue import Item
-from src.plot_style import in_large_format, large_format_context
+from src.plots.plot_style import in_large_format, large_format_context
 
 
 # --- geometry ---------------------------------------------------------------------------------------------------
@@ -71,7 +71,7 @@ def _plot_fan_control(data, cfg):
     plots_operation.cost_year(data['control'], cfg)
     plots_operation.year_scatter(data['fixed'], cfg)
     if len(data['control']) >= 8000 * data['control']['set'].nunique():      # the fan curves need the full year
-        from src import weather
+        from src.inputs import weather
         plots_operation.fan_curves(data['control'], weather.load_year(), cfg)
 
 

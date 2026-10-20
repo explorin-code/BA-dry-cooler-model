@@ -8,9 +8,9 @@ values come from parameters.py.
 
 from dataclasses import dataclass, InitVar
 
-from src.dry_cooler_physics import get_geometry
-from src.fluid_properties import get_fluid_properties, get_air_properties, relative_to_absolute_humidity, absolute_to_relative_humidity
-from src.param_loader import from_parameters, PERCENT
+from src.inputs.geometry import get_geometry
+from src.thermo.fluid_properties import get_fluid_properties, get_air_properties, relative_to_absolute_humidity, absolute_to_relative_humidity
+from src.inputs.param_loader import from_parameters, PERCENT
 
 # Used only when BOTH phi and X come back None -- can't be a field
 # default (see get_operating_conditions() call site for why).

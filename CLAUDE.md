@@ -5,5 +5,5 @@ standard coolers (P1-P3) over a Munich climate year. Entry points: `main.py solv
 separate LaTeX project; thesis symbols are used throughout (`docs/notation.md`).
 
 - Start with `docs/handover.md`; the other documents are indexed there.
-- All inputs are in `src/parameters.py`; the tube counts are fixed per cooler (`src/cooler_sets.py`).
+- All inputs are in `src/parameters.py`; the tube counts are fixed per cooler (`src/inputs/cooler_sets.py`).
 - Tests: `venv/bin/python -m pytest`. A changed pinned number is a model change.

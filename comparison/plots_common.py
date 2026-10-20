@@ -2,14 +2,14 @@
 plots_common.py -- what all comparison figures share: colours, thesis-symbol labels, saving, the figure styles.
 
 Figures use the thesis symbols (mathtext); the CSV columns of the analyses keep the code names and LABEL maps
-one to the other. `save_figure` writes the PNG (src/figures.py); the figure stays open, so main.py (plt.show) and the
+one to the other. `save_figure` writes the PNG (src/plots/figures.py); the figure stays open, so main.py (plt.show) and the
 GUI (collects open figures) can display it.
 """
 
 import matplotlib.pyplot as plt
 
-from src import figures
-from src.plot_style import TUM_BLUE, TUM_GREEN, TUM_ORANGE, lighten_color
+from src.plots import figures
+from src.plots.plot_style import TUM_BLUE, TUM_GREEN, TUM_ORANGE, lighten_color
 
 SET_COLOR = {'P1': TUM_BLUE, 'P2': TUM_ORANGE, 'P3': TUM_GREEN}      # TUM Corporate Design
 

@@ -4,7 +4,7 @@ the same process, the GUI) gets."""
 import matplotlib.pyplot as plt
 import pytest
 
-from src.plot_style import PRINT_STYLE, print_context
+from src.plots.plot_style import PRINT_STYLE, print_context
 
 
 def test_print_context_sets_the_print_sizes_and_restores_them():
@@ -49,6 +49,6 @@ def test_importing_the_workflows_sets_no_global_style():
     import subprocess
     import sys
     code = ("import matplotlib; matplotlib.use('Agg'); import matplotlib.pyplot as plt; before = plt.rcParams['font.size']; "
-            "import src.scenario_pipeline, comparison.analyses; print(before == plt.rcParams['font.size'])")
+            "import src.workflow.scenario_pipeline, comparison.analyses; print(before == plt.rcParams['font.size'])")
     out = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, check=True)
     assert out.stdout.strip() == "True"

@@ -10,7 +10,7 @@ Geometry/OperatingConditions, via param_loader.from_parameters.
 
 from dataclasses import dataclass
 
-from src.param_loader import from_parameters
+from src.inputs.param_loader import from_parameters
 
 
 @dataclass

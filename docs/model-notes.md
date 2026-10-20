@@ -39,7 +39,7 @@ increase (thesis Eq. 2.28).
   Al 2700,
   Cu 8960 (VDI), steel 7850 kg/m³.
 
-**`dry_cooler_physics.py`** -- The fin count along one pass is `N_f = int(l / s_f)` (whole fins). At the default fin
+**`geometry.py`** -- The fin count along one pass is `N_f = int(l / s_f)` (whole fins). At the default fin
 pitch this is
 about 617 fins/m, above the 300-450 fins/m Kröger (Vol. 2, Sec. 8.1) gives as typical. There is no fin collar by default
 (`FIN_COLLAR_THICKNESS_MM` = 0): `delta_c` only enters Wang's collar diameter d_c (friction factor, sigma), not the
@@ -173,7 +173,7 @@ faster with a warm cache). At cold ambient Cell ends 2-3 K warmer than NTU / LMT
 local viscosity
 and k of the cold water against mean-temperature properties; not investigated further.
 
-**Profiles (`analysis.py`)** -- Cell's and NTU's profiles are reductions of the grids their solvers computed. LMTD's is
+**Profiles (`profiles.py`)** -- Cell's and NTU's profiles are reductions of the grids their solvers computed. LMTD's is
 a reconstruction: a
 closed-form exponential T(x) from its converged scalars (`calc_lmtd_profile`); the cooler-results figure marks it as
 such. LMTD's dQ/dl =

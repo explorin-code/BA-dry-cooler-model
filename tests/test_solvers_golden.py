@@ -9,9 +9,9 @@ from pathlib import Path
 import pytest
 
 from src import solvers
-from src.dry_cooler_physics import get_geometry
-from src.operating_conditions import get_operating_conditions
-from src.solver_settings import get_solver_settings
+from src.inputs.geometry import get_geometry
+from src.inputs.operating_conditions import get_operating_conditions
+from src.inputs.solver_settings import get_solver_settings
 from src.solvers import ntu_table
 
 GOLDEN = json.loads((Path(__file__).parent / "golden_solvers.json").read_text())
@@ -44,7 +44,7 @@ def test_benchmark_table_is_the_first_table():
     interpolation, the values recorded when that was the only table -- the build times of the thesis belong to it."""
     geo, settings = get_geometry(), get_solver_settings()
     axis = ntu_table.NTU_TABLE_NTU_BENCHMARK
-    from src.benchmark_solvers import preserved_ntu_tables
+    from src.benchmarks.benchmark_solvers import preserved_ntu_tables
     with preserved_ntu_tables():                                    # the narrow table must not stay installed for the other tests
         ntu_table.install_table(geo.N_r, settings.ntu_n_elements, ntu_table.build_ntu_table(geo.N_r, settings.ntu_n_elements, axis), axis)
         table = ntu_table.tables[(geo.N_r, settings.ntu_n_elements)]
@@ -57,7 +57,7 @@ def test_benchmark_table_is_the_first_table():
 def test_profile_heat_flow_adds_up_to_q(key):
     """The dQ/dL curve of the cooler-results figure integrates to the solver's Q (Cell's once did not: 89 %)."""
     import numpy as np
-    from src.analysis import calc_cell_profile, calc_lmtd_profile, calc_ntu_profile
+    from src.solvers.profiles import calc_cell_profile, calc_lmtd_profile, calc_ntu_profile
     geo, settings = get_geometry(), get_solver_settings()
     ops = get_operating_conditions(geo, **POINTS['design'])
     result = solvers.run_solver(key, ops, geo, settings, profile=False)

@@ -10,8 +10,8 @@ import matplotlib.pyplot as plt
 import streamlit as st
 
 import src.parameters as parameters
-from src.run_modes import get_run_modes
-from src.scenario_pipeline import run_scenarios
+from src.inputs.run_modes import get_run_modes
+from src.workflow.scenario_pipeline import run_scenarios
 
 
 class _Capture(logging.Handler):

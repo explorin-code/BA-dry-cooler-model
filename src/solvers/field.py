@@ -10,7 +10,7 @@ from math import exp
 def cell_path_order(N_r, n_segments):
     """(row, segment) in coolant flow order: enters the last row, serpentine
     towards row 0, axial direction alternating per row. Used by NTU, Cell
-    and analysis.py, so all three walk the same path."""
+    and profiles.py, so all three walk the same path."""
     path = []
     for r in range(N_r - 1, -1, -1):
         s_range = range(0, n_segments) if r % 2 == 0 else range(n_segments - 1, -1, -1)

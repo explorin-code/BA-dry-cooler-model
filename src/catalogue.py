@@ -4,7 +4,7 @@ catalogue.py
 The one pattern both workflows use to offer "things to run": a catalogue of `Item`s, each with a compute, a plot and a
 log step, run in catalogue order by `run_items`.
 
-  solver comparison   src/outputs.py        cooler results, convergence, caching / resolution / annual benchmarks
+  solver comparison   src/workflow/outputs.py        cooler results, convergence, caching / resolution / annual benchmarks
   cooler comparison   comparison/analyses.py   geometry, fan control, sensitivity, ...
 
 The steps take the same extra arguments `*args` (the solver comparison passes its run context, the cooler
