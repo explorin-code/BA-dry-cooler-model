@@ -7,7 +7,7 @@ with Absorption Systems* (TUM, Chair of Energy Systems; submitted October 2026).
 
 ```
 python3 -m venv venv && venv/bin/pip install -r requirements.txt     # developed with Python 3.14
-venv/bin/python -m pytest                                            # about 100 s
+venv/bin/python -m pytest                                            # about 100 s (4 min the first time: the NTU tables are built)
 venv/bin/python main.py solver                                       # one cooler, LMTD / NTU / Cell side by side (a few seconds)
 venv/bin/python main.py compare pinch_fan                            # the three coolers over the climate year (needs the NTU tables, see below)
 venv/bin/streamlit run gui.py                                        # both workflows with forms

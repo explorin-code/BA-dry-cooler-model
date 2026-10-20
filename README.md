@@ -36,5 +36,5 @@ comparison/           the cooler comparison (start with __init__.py and analyses
 thesis_figures/       chapter-3 schematics; the rendered figures go to out/ (gitignored)
 climate_data/         derived hourly weather, DWD station München-Stadt (03379), see its README
 docs/                 handover, workflows, cooler comparison, model notes, decisions, notation, GUI and inputs
-tests/                `venv/bin/python -m pytest` (about 100 s)
+tests/                `venv/bin/python -m pytest` (about 100 s, 4 min on the first run)
 ```

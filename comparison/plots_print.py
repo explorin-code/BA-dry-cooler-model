@@ -56,6 +56,13 @@ def legend_handles(sets):
             + [Line2D([], [], color='k', lw=PRINT_LW, label="dry"), Line2D([], [], color='k', lw=PRINT_LW, ls=PRINT_DASHED, label="precooled")])
 
 
+def _tight_layout(fig, **kwargs):
+    """fig.tight_layout for figures with an inset graph: tight_layout leaves the inset out (expected), so its warning is not shown."""
+    with warnings.catch_warnings():
+        warnings.simplefilter('ignore', UserWarning)
+        fig.tight_layout(**kwargs)
+
+
 def corner(ax, text, loc='lower left'):
     """The one constant that matters, small in a corner of the graph."""
     x, ha = (0.03, 'left') if 'left' in loc else (0.97, 'right')
@@ -239,7 +246,7 @@ def missed_hours(df, cfg):
                                 Line2D([], [], color=MISSED, marker='o', ls='none', ms=2.5, label="target missed")], loc='upper left')
         corner(axes[-1], rf"$w_{{fr}}$ = {cfg.w_fr_design:g} m/s", 'upper left')
         fig.set_size_inches(PRINT_WIDTH, 2.7)
-        fig.tight_layout(w_pad=0.8)
+        _tight_layout(fig, w_pad=0.8)
         save_figure(fig, 'missed_hours', dpi=PRINT_DPI)
     return fig
 
@@ -342,9 +349,7 @@ def annual_costs(year, control, control_dry, cfg):
                        labels=["electricity", "pad water", f"material ({cfg.lifetime_years:g} a)"], handler_map={tuple: HandlerTuple(ndivide=None, pad=0)},
                        loc='upper right', ncol=1, fontsize=6, borderpad=0.4, handlelength=2.4)
         fig.set_size_inches(PRINT_WIDTH, 2.7)
-        with warnings.catch_warnings():
-            warnings.simplefilter('ignore', UserWarning)                          # tight_layout skips the inset (expected); the layout is as intended
-            fig.tight_layout(w_pad=0.9)
+        _tight_layout(fig, w_pad=0.9)
         save_figure(fig, 'annual_costs', dpi=PRINT_DPI)
     return fig
 
