@@ -17,7 +17,8 @@ src/outputs.py); each can be overridden per run:
     python main.py solver --solvers lmtd ntu_table          # only these solvers (lmtd ntu_field ntu_table cell_2d cell_3d)
     python main.py solver --outputs cooler_results convergence   # these figures only
     python main.py solver --outputs caching resolution      # both solver-performance benchmarks
-    python main.py solver --outputs annual                  # annual solver benchmark (8760 h, minutes)
+    python main.py solver --outputs annual                  # annual solver benchmark (8760 h, minutes; Cell on every 4th hour, extrapolated)
+    python main.py solver --outputs annual --annual-cell-stride 1 --annual-time-budget 0   # the whole year for every solver (Cell 3D: ~2 h)
 
 Cooler comparison (analyses: see comparison/analyses.py; none named = COMPARE_ANALYSES in parameters.py):
     python main.py compare geometry                         # plot all geometries
@@ -47,6 +48,8 @@ def add_solver_arguments(parser):
                              + ", ".join(f"{key} ({item.title})" for key, item in OUTPUTS.items()))
     parser.add_argument("--cooler", choices=list(CELL_SETS), help="cooler cell to use (default GEOMETRY_SET)")
     parser.add_argument("--solvers", nargs="+", choices=list(SOLVER_LABELS), help="solvers to run (default SOLVERS)")
+    parser.add_argument("--annual-cell-stride", type=int, help="annual benchmark: Cell on every n-th hour (default ANNUAL_CELL_STRIDE; 1 = every hour)")
+    parser.add_argument("--annual-time-budget", type=float, help="annual benchmark: seconds per solver before it is extrapolated (default ANNUAL_TIME_BUDGET_S; 0 = no limit)")
 
 
 def parse_args(argv=None):
@@ -74,7 +77,8 @@ def run_solver(args):
     from src.scenario_pipeline import run_scenarios
     if args.cooler:
         parameters.GEOMETRY_SET = args.cooler
-    modes = get_run_modes(insight_mode=args.insight, outputs=args.outputs, solvers=args.solvers)
+    modes = get_run_modes(insight_mode=args.insight, outputs=args.outputs, solvers=args.solvers,
+                          annual_cell_stride=args.annual_cell_stride, annual_time_budget=args.annual_time_budget)
     setup_logging(modes.insight_mode)
     run_scenarios(modes)
 
