@@ -83,16 +83,18 @@ def run_point(cfg, geo, ops, method=None, mode='dry') -> dict:
     P_fan = calc_fan_power(ops, res.T_a_o, Delta_p_a)
     wang_ok, vdi_ok, area_ratio = _range_flags(geo)
 
+    # pinch = of the WHOLE cooler: T_c,o - ambient air (the pad is part of it; negative values are possible when precooled);
+    # pinch_coil = of the coil alone: T_c,o - the air entering the coil (= pinch when dry)
     return dict(
         method=method, mode=mode,
         T_a_amb=ops_amb.T_a_i, phi_amb=ops_amb.phi, T_a_i=ops.T_a_i,
         Q_kW=res.Q_dot / 1e3, T_c_o=res.T_c_o, T_a_o=res.T_a_o,
-        pinch=res.T_c_o - ops.T_a_i, k=res.k, Re_c=res.diagnostics['Re_c'],
+        pinch=res.T_c_o - ops_amb.T_a_i, pinch_coil=res.T_c_o - ops.T_a_i, k=res.k, Re_c=res.diagnostics['Re_c'],
         w_fr=ops.w_fr, m_dot_a=ops.m_dot_a, V_dot_a=ops.V_dot_a, w_c=ops.w_c,
         Delta_p_a=Delta_p_a, Delta_p_c=Delta_p_c,
         P_fan=P_fan, P_pump=P_pump, P_total=P_fan + P_pump,
         m_dot_ev=calc_water_usage(ops_amb, ops) if mode == 'precooled' else 0.0,
-        target_met=res.T_c_o <= cfg.T_c_target + 1e-6,
+        target_met=res.T_c_o <= cfg.T_c_target + config.TARGET_TOL,
         wang_ok=wang_ok, vdi_ok=vdi_ok, A_ratio=area_ratio,
         freeze=res.T_c_o < cfg.T_freeze_risk,   # water at risk of freezing; below 0 °C the numbers are not physical
     )

@@ -10,8 +10,9 @@ To add an analysis: write its compute/plot/log and append an Item to ANALYSES.
 
 import pandas as pd
 
-from comparison import evaluate as ev, operation, plots_design, plots_operation, rows, sensitivity, sizing, tubes, wall
+from comparison import evaluate as ev, operation, plots_design, plots_operation, plots_print, rows, sensitivity, sizing, tubes, variation, wall
 from src.catalogue import Item
+from src.plot_style import in_large_format, large_format_context
 
 
 # --- geometry ---------------------------------------------------------------------------------------------------
@@ -27,10 +28,13 @@ def _compute_geometry(cfg):
 
 
 def _plot_geometry(data, cfg):
+    """The print-size drawing (plot_geometry.plot_print) and the large-format overview figures."""
     from comparison import plot_geometry
-    plot_geometry.plot(cfg)
-    plot_geometry.plot_bank(cfg)
-    plots_design.geometries(data['modules'], cfg)
+    plot_geometry.plot_print(cfg)
+    with large_format_context():
+        plot_geometry.plot(cfg)
+        plot_geometry.plot_bank(cfg)
+        plots_design.geometries(data['modules'], cfg)
 
 
 def _log_geometry(data, cfg):
@@ -71,7 +75,50 @@ def _plot_fan_control(data, cfg):
         plots_operation.fan_curves(data['control'], weather.load_year(), cfg)
 
 
+def _compute_pinch_fan(cfg):
+    return {'year': operation.year_modes(cfg, cfg.w_fr_design, cfg.year_stride),
+            'sweep': operation.airflow_sweep(cfg),
+            'control': operation.year_control(cfg, cfg.year_stride),
+            'control_dry': operation.year_control(cfg, cfg.year_stride, allow_pad=False)}
+
+
+def _plot_pinch_fan(data, cfg):
+    plots_print.pinch_year(data['year'], cfg)
+    plots_print.missed_hours(data['year'], cfg)
+    plots_print.pinch_year_clouds(data['year'], cfg)
+    plots_print.annual_costs(data['year'], data['control'], data['control_dry'], cfg)
+    plots_print.monthly_cost(data['control'], cfg)
+    plots_print.water_vs_hours(data['year'], data['control'], data['control_dry'], cfg)
+    plots_print.pinch_speed(data['sweep'], cfg)
+    plots_print.controlled_fan(data['control'], cfg)
+    plots_print.fan_cop(data['control'], cfg)
+
+
+def _log_pinch_fan(data, cfg):
+    lines = []
+    for key in cfg.sets:
+        d = data['year'][data['year'].set == key]
+        limited = int(data['control'][data['control'].set == key].limited.sum() * cfg.year_stride)
+        lines.append(f"{key} at {cfg.w_fr_design:g} m/s: the median outlet reaches {cfg.T_c_target:g} °C at T_amb = "
+                     f"{operation.target_crossing(d, 'dry', cfg.T_c_target):.1f} °C dry, {operation.target_crossing(d, 'precooled', cfg.T_c_target):.1f} °C precooled; "
+                     f"pinch at the warmest hour {d[d['mode'] == 'dry'].pinch.min():.1f} K dry / {d[d['mode'] == 'precooled'].pinch.min():.1f} K precooled; "
+                     f"controlled fan misses the target in {limited} h")
+    return lines
+
+
 # --- design analyses ---------------------------------------------------------------------------------------------
+
+def _log_variation(data, cfg):
+    """Per parameter: the cheapest variant of the sensitivity cooler that misses the target for at most plots_print.MISSED_H hours, against its standard value."""
+    df = variation.add_costs(cfg, data['variation'])
+    df = df[df.set == cfg.sensitivity_set]
+    lines = [f"{cfg.sensitivity_set}: standard cost {df[df.standard].cost_total.mean():.0f} EUR/a; cheapest variant per parameter with at most "
+             f"{plots_print.MISSED_H} h above {cfg.T_c_target:g} °C:"]
+    for param, d in df.groupby('param', sort=False):
+        best = d[d.h_limited <= plots_print.MISSED_H].nsmallest(1, 'cost_total').iloc[0]
+        lines.append(f"  {param:<10} = {best.value:g}: {best.cost_total:.0f} EUR/a, pinch {best.pinch:.1f} K, {best.h_limited:.0f} h missed")
+    return lines
+
 
 def _log_sensitivity(data, cfg):
     df = data['sensitivity']
@@ -99,17 +146,20 @@ ANALYSES = {a.key: a for a in (
          _plot_geometry, _log_geometry),
     Item('ambient_cases', "Ambient states",
          lambda cfg: {'cases': operation.ambient_cases(cfg)},
-         lambda d, cfg: plots_operation.ambient_cases(d['cases'], cfg)),
+         in_large_format(lambda d, cfg: plots_operation.ambient_cases(d['cases'], cfg))),
     Item('airflow_sweep', "Face-velocity sweep",
          lambda cfg: {'sweep': operation.airflow_sweep(cfg)},
-         lambda d, cfg: plots_operation.airflow_sweep(d['sweep'], cfg)),
+         in_large_format(lambda d, cfg: plots_operation.airflow_sweep(d['sweep'], cfg))),
     Item('fan_control', "Year with fan control",
-         _compute_fan_control, _plot_fan_control, _log_control),
+         _compute_fan_control, in_large_format(_plot_fan_control), _log_control),
+    Item('pinch_fan', "Pinch, fan and annual economics (print size)", _compute_pinch_fan, _plot_pinch_fan, _log_pinch_fan),
+    Item('variation', "Parameter variation: pinch and annual cost (print size)", lambda cfg: {'variation': variation.run(cfg)},
+         lambda d, cfg: plots_print.variation_figures(d['variation'], cfg), _log_variation),
     Item('sensitivity', "Sensitivity", lambda cfg: {'sensitivity': sensitivity.run(cfg)},
-         lambda d, cfg: plots_design.sensitivity(d['sensitivity'], cfg), _log_sensitivity),
-    Item('rows', "Rows", lambda cfg: {'rows': rows.run(cfg)}, lambda d, cfg: plots_design.rows_analysis(d['rows'], cfg),
+         in_large_format(lambda d, cfg: plots_design.sensitivity(d['sensitivity'], cfg)), _log_sensitivity),
+    Item('rows', "Rows", lambda cfg: {'rows': rows.run(cfg)}, in_large_format(lambda d, cfg: plots_design.rows_analysis(d['rows'], cfg)),
          lambda d, cfg: _log_reach(d['rows'], 'N_r', cfg)),
     Item('tubes', "Tubes per row", lambda cfg: {'tubes': tubes.run(cfg)},
-         lambda d, cfg: plots_design.tubes_analysis(d['tubes'], cfg)),
-    Item('wall', "Wall thickness", lambda cfg: {'wall': wall.run(cfg)}, lambda d, cfg: plots_design.wall_analysis(d['wall'], cfg)),
+         in_large_format(lambda d, cfg: plots_design.tubes_analysis(d['tubes'], cfg))),
+    Item('wall', "Wall thickness", lambda cfg: {'wall': wall.run(cfg)}, in_large_format(lambda d, cfg: plots_design.wall_analysis(d['wall'], cfg))),
 )}

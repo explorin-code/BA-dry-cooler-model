@@ -3,7 +3,7 @@ runner.py -- runs a selection of analyses (analyses.py): compute -> CSV -> figur
 
 One code path for `python -m comparison`, `python main.py compare` and the GUI. Results are written to
 output/comparison/<analysis>_<name>.csv so figures can be restyled without recomputing (plots_only).
-Figures are saved to thesis_figures/out/ch4/; with keep_open they also stay open for plt.show() / the GUI.
+Figures are saved to thesis_figures/out/ch4_results/cooler_performance/ (the module drawings to .../geometry/); with keep_open they also stay open for plt.show() / the GUI.
 Progress (src/catalogue.run_items) and the summary lines go to the logger "src.comparison" (the GUI shows the "src" loggers).
 """
 

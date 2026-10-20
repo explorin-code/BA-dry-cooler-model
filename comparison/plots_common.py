@@ -1,5 +1,5 @@
 """
-plots_common.py -- what all comparison figures share: colours, thesis-symbol labels, saving.
+plots_common.py -- what all comparison figures share: colours, thesis-symbol labels, saving, the figure styles.
 
 Figures use the thesis symbols (mathtext); the CSV columns of the analyses keep the code names and LABEL maps
 one to the other. `save_figure` writes the PNG (src/figures.py); the figure stays open, so main.py (plt.show) and the
@@ -7,32 +7,31 @@ GUI (collects open figures) can display it.
 """
 
 import matplotlib.pyplot as plt
-import seaborn as sns
 
 from src import figures
 from src.plot_style import TUM_BLUE, TUM_GREEN, TUM_ORANGE, lighten_color
 
 SET_COLOR = {'P1': TUM_BLUE, 'P2': TUM_ORANGE, 'P3': TUM_GREEN}      # TUM Corporate Design
-sns.set_theme(style='whitegrid', context='talk')
 
 # CSV column / parameter name -> thesis symbol with unit
 LABEL = {
     'Q_kW': r'$\dot{Q}$ [kW]', 'T_c_o': r'$T_{c,o}$ [°C]', 'T_a_o': r'$T_{a,o}$ [°C]',
-    'pinch': r'$\Delta T_{pinch}$ [K]', 'P_fan': r'$P_{fan}$ [W]', 'P_pump': r'$P_{pump}$ [W]',
+    'pinch': r'$\Delta T_{pinch}$ [K]', 'pinch_coil': r'$\Delta T_{pinch,coil}$ [K]', 'P_fan': r'$P_{fan}$ [W]', 'P_pump': r'$P_{pump}$ [W]',
     'A_fr': r'$A_{fr}$ [m²]', 'A_tot': r'$A_{tot}$ [m²]', 'depth': r'depth $N_r\,s_l$ [m]',
     'm_total': r'$m_{Al+Cu}$ [kg]', 'm_Al': r'$m_{Al}$ (fins) [kg]', 'm_Cu': r'$m_{Cu}$ (tubes) [kg]',
     'kg_per_kW': r'$m_{Al+Cu}/\dot{Q}$ [kg/kW]', 'N_t': r'$N_t$ [–]', 'N_r': r'$N_r$ [–]',
     'w_c': r'$w_c$ [m/s]', 'w_fr': r'$w_{fr}$ [m/s]', 'Re_c': r'$Re_c$ [–]', 'T_a_amb': r'ambient $T_{a,i}$ [°C]',
-    'm_dot_ev': r'$\dot{m}_{water}$ [g/s]',
+    'm_dot_ev': r'$\dot{m}_{ev}$ [g/s]',
     'wall_mm': r'$\delta_p$ [mm]', 'd_mm': r'$d$ [mm]', 's_f_mm': r'$s_f$ [mm]', 'delta_f_mm': r'$\delta_f$ [mm]',
     's_t_mm': r'$s_t$ [mm]', 's_l_mm': r'$s_l$ [mm]',
 }
 SYMBOL = {k: v.split(' [')[0] for k, v in LABEL.items()}      # symbol without unit
 DELTA_UNIT = {'Q_kW': 'kW', 'T_c_o': 'K'}
 
-def save_figure(fig, name):
-    """PNG in thesis_figures/out/ch4/, window title = the name (figures stay open; the runner closes them)."""
-    figures.save_figure(fig, 'ch4', name, title=name.replace('_', ' ').capitalize())
+def save_figure(fig, name, dpi=200, folder=figures.COOLER):
+    """PNG in thesis_figures/out/ch4_results/cooler_performance/ (folder=figures.GEOMETRY for the drawings of the modules), window title = the
+    name (figures stay open; the runner closes them). Print-size figures pass dpi=plot_style.PRINT_DPI."""
+    figures.save_figure(fig, folder, name, title=name.replace('_', ' ').capitalize(), dpi=dpi)
 
 
 def mode_color(key, mode):

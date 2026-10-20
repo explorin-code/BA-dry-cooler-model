@@ -17,6 +17,10 @@ from src import weather
 from src.cooler_sets import CELL_SETS
 from src.solver_settings import SolverSettings, get_solver_settings
 
+# The water target is met when T_c,o <= target + TARGET_TOL: the variable-speed fan lands on the target within its root-finder
+# tolerance (face velocity to 1e-3 m/s = a few mK), far below the accuracy of the model. ONE definition for every flag and count.
+TARGET_TOL = 0.01             # [K]
+
 # Uniform inlet air: Cell 2D == 3D. 60 NTU elements: the NTU table's R = C_a/C_c range is 0.1 * N_e = 6 (Eq. 1 validity);
 # the 1 kg/s designs sit at R ~ 2-5, beyond 6 (high air flows) the table falls back to the field solve (correct, ~100x slower).
 NTU_ELEMENTS = 60

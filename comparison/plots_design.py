@@ -8,6 +8,7 @@ import seaborn as sns
 
 from src.plot_style import TUM_BLUE, TUM_ORANGE
 from comparison.plots_common import DELTA_UNIT, LABEL, SET_COLOR, SYMBOL, save_figure, target_line
+from src.figures import GEOMETRY
 
 
 def geometries(df, cfg):
@@ -19,7 +20,7 @@ def geometries(df, cfg):
         ax.set_xlabel(''); ax.set_ylabel(LABEL[col])
     fig.suptitle(rf"Modules for $\dot{{m}}_c$ = {cfg.m_dot_c:g} kg/s")
     fig.tight_layout()
-    save_figure(fig, 'geometries')
+    save_figure(fig, 'geometries', folder=GEOMETRY)
 
 
 def sensitivity(df, cfg):

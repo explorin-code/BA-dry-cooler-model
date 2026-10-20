@@ -11,7 +11,7 @@ turns it into a per-hour fan schedule without solving anything:
     T_a,i = T_amb - eta_B (T_amb - T_wb)  ->  w_fr = curve(T_a,i)  ->  P_fan = power_curve(T_a,i)
 
 Approximations: the cooling limit is taken as the thermodynamic wet-bulb temperature (VDI M8
-Gl. 15 differs by < 0.05 K, see docs/review-needed.md), eta_B from precooling.calc_eta_B, the curve is
+Gl. 15 differs by < 0.05 K, see docs/model-notes.md), eta_B from precooling.calc_eta_B, the curve is
 valid for the weather/pressure range of the study year. `validate` compares the schedule with the
 full control run.
 """

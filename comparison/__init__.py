@@ -10,10 +10,11 @@ with common rows and one common tube length) and then analysed in representative
   sizing.py        the sized module of a cell (fixed tube count; design_tubes re-derives it)
   operation.py     ambient states, fixed-speed year, face-velocity sweep, variable-speed fan control, summaries
   fan_curve.py     the controlled fan as a function of the cooler inlet air temperature
+  variation.py     one-at-a-time geometry variation: pinch and annual cost of every cooler
   sensitivity.py, rows.py, tubes.py, wall.py   design analyses around the sized modules
   analyses.py      the catalogue: compute / plot / log of every analysis      <- start reading here
   runner.py        runs a selection of them (CSV cache, figures, summary lines)
-  plots_*.py, plot_geometry.py   the figures (thesis symbols)
+  plots_print.py   the print-size figures; plots_common / design / operation.py the large-format ones; plot_geometry.py the module drawings (thesis symbols)
 
 Entry points: `python -m comparison`, `python main.py compare`, the GUI's comparison mode.
 """
