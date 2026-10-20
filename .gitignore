@@ -1,8 +1,11 @@
 __pycache__/
 *.pyc
 .DS_Store
+.pytest_cache/
 venv/
 cache/
 thesis_figures/out/
-output/comparison/
+output/
 raw_climate_data/
+defense/
+.claude/settings.local.json
