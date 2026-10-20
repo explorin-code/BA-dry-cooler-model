@@ -32,6 +32,7 @@ def _model_lock():
 
 
 def run_model(mode, values, defaults):
+    """Runs the model under the global lock (the model state is shared), waiting if another browser tab is still running."""
     lock = _model_lock()
     if not lock.acquire(blocking=False):
         st.warning("Another run (other browser tab) is still in progress -- waiting for it ...")

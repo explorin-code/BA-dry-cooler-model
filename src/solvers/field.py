@@ -1,6 +1,6 @@
 """
 field.py -- the element field shared by NTU and Cell: the coolant path, the element relation (Cabezas-Gomez, Navarro &
-Saiz-Jabardo 2007, Eqs. 1, 3, 4), the connections between elements and the two traversals.
+Saiz-Jabardo 2006, Eqs. 1, 3, 4), the connections between elements and the two traversals.
 """
 
 import numpy as np
@@ -22,14 +22,14 @@ def cell_path_order(N_r, n_segments):
 def calc_element_effectiveness(UA_e: float, C_c_e: float) -> float:
     """Element effectiveness Gamma = 1 - exp(-UA_e / C_c_e) of a small
     mixed(tube)-unmixed(air) cross-flow element, valid for C_c_e << C_h_e.
-    Source: Cabezas-Gomez, Navarro & Saiz-Jabardo (2007), J. Heat Transfer
+    Source: Cabezas-Gomez, Navarro & Saiz-Jabardo (2006), J. Heat Transfer
     129, p. 283, Eq. (1)."""
     return 1.0 - exp(-UA_e / C_c_e)
 
 
 def calc_element_outlets(T_hot_in: float, T_cold_in: float, Gamma: float, B: float):
     """Element outlet temperatures (T_cold_out, T_hot_out), B = C_c Gamma / C_h.
-    Source: Cabezas-Gomez et al. (2007), p. 283, Eqs. (3)-(4)."""
+    Source: Cabezas-Gomez et al. (2006), p. 283, Eqs. (3)-(4)."""
     T_cold_out = ((B + 2.0 * (1.0 - Gamma)) / (2.0 + B)) * T_cold_in + (2.0 * Gamma / (2.0 + B)) * T_hot_in
     T_hot_out = ((2.0 - B) / (2.0 + B)) * T_hot_in + (2.0 * B / (2.0 + B)) * T_cold_in
     return T_cold_out, T_hot_out
@@ -140,7 +140,7 @@ def sweep_coolant_direction(T_c, T_a, element, T_c_i, T_a_i, path, omega=1.0):
     """INACTIVE -- not called anywhere; kept for comparison with
     sweep_two_way (swap the function name in solve_ntu_field and/or
     _relax_cell_grid). One pass along the coolant path only, as in
-    Cabezas-Gomez et al. (2007), Fig. 2(a), item 1.7: each element updates
+    Cabezas-Gomez et al. (2006), Fig. 2(a), item 1.7: each element updates
     both outlets, with air inlets from the previous iteration (the row
     upstream is only reached later on the coolant path). Same converged
     field, but more iterations, and at the same stopping threshold a larger

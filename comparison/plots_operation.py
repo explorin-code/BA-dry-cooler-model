@@ -12,6 +12,7 @@ from src.plot_style import TUM_ACCENT_BLUE, TUM_GREY_50, TUM_IVORY, lighten_colo
 
 
 def ambient_cases(df, cfg):
+    """T_c,o, pinch and Q of every cooler in the representative ambient states, dry and precooled side by side (df = operation.ambient_cases)."""
     cell = df
     order = ['coldest', 'median', 'design', 'wettest_warm', 'P95', 'P99', 'hottest']
     fig, axes = plt.subplots(1, 3, figsize=(24, 7))
@@ -51,6 +52,7 @@ def year_scatter(df, cfg, w_fr=None):
 
 
 def airflow_sweep(df, cfg):
+    """T_c,o against the face velocity (top) and Q against the fan power (bottom) in four ambient states, dry and precooled (df = operation.airflow_sweep)."""
     cases = ['design', 'P95', 'hottest', 'wettest_warm']
     fig, axes = plt.subplots(2, len(cases), figsize=(26, 11), sharex='row')
     for j, case in enumerate(cases):

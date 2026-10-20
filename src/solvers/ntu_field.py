@@ -1,8 +1,8 @@
 """
 ntu_field.py -- NTU: the element-wise e-NTU field of ONE coolant circuit and the outer-loop step that uses it.
 
-Source: Cabezas-Gomez, Navarro & Saiz-Jabardo (2007), "Thermal Performance of Multipass Parallel and Counter-Cross-Flow
-Heat Exchangers", J. Heat Transfer 129, 282-289, DOI 10.1115/1.2430719. Arrangement G^c_(N_r,1). Paper notation inside
+Source: Cabezas-Gomez, Navarro & Saiz-Jabardo (2006), "Thermal Performance of Multipass Parallel and Counter-Cross-Flow
+Heat Exchangers", J. Heat Transfer 129, 282-290, DOI 10.1115/1.2430719. Arrangement G^c_(N_r,1). Paper notation inside
 the element functions: h = coolant (tube fluid, mixed), c = air (external fluid, unmixed). Constant U and cp within one
 field solve (as in the paper); the outer loop updates them between field solves -- revisit if results look off.
 The field is traversed with the shared sweep_two_way (field.py), the same as Cell; the paper's own coolant-direction-only

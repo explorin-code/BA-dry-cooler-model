@@ -20,6 +20,7 @@ N_R_MAX = 6                   # upper limit chosen for the thesis (Wang's tested
 
 
 def run(cfg, method=None) -> pd.DataFrame:
+    """Sweeps N_r = 1 .. N_R_MAX for every cooler at the design point (dry) and the P95 point (precooled): one row per cooler, case and row count with duty, T_c,o, powers and masses."""
     method = cfg.solver(table_ok=False) if method is None else method
     points = cfg.design_points()
     cases = [('design', 'dry'), ('P95', 'precooled')]

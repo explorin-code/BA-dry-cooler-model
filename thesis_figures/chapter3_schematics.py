@@ -59,8 +59,8 @@ from src.dry_cooler_physics import get_geometry
 from src.operating_conditions import get_operating_conditions
 from src.precooling import calc_precooler
 from src.solver_settings import get_solver_settings
-from src.solvers import (cell_path_order, get_coolant_inlet, get_staggered_air_inlet, solve_it_cell,
-                         solve_it_NTU)
+from src.solvers import (cell_path_order, get_coolant_inlet, get_staggered_air_inlet, solve_cell,
+                         solve_ntu)
 
 COLOR_OUTLINE = "#333333"
 CMAP = "RdYlBu_r"                # one temperature scale for coolant and air
@@ -719,12 +719,13 @@ def run_precooler_scenarios(n_segments: int = None, n_rows: int = None):
     ops_pc, engaged = calc_precooler(ops, SimpleNamespace(cell=result))
     if not engaged:
         ops_pc, _ = calc_precooler(ops, SimpleNamespace(cell=SimpleNamespace(T_c_o=float("inf"))))
-    result_pc = solve_it_cell(n_segments=result.T_c_grid.shape[2], ops=ops_pc, geo=geo,
+    result_pc = solve_cell(n_segments=result.T_c_grid.shape[2], ops=ops_pc, geo=geo,
                               settings=get_solver_settings())
     return (result, ops), (result_pc, ops_pc), geo
 
 
 def plot_precooler_paths(ambient, precooled, geo):
+    """Two circuit drawings, dry and adiabatically precooled, on one colour scale; `ambient` and `precooled` are (result, ops) pairs."""
     (result, ops), (result_pc, ops_pc) = ambient, precooled
     t_range = (ops_pc.T_a_i, ops.T_c_i)                   # coldest air .. hottest coolant
     fig, axes = plt.subplots(1, 2, figsize=(12, 8))
@@ -878,9 +879,9 @@ def run_model(solver: str = "cell", n_segments: int = None, n_rows: int = None):
         parameters.N_ROWS = original_rows
     settings = get_solver_settings()
     if solver == "cell":
-        result = solve_it_cell(n_segments=n_segments, ops=ops, geo=geo, settings=settings)
+        result = solve_cell(n_segments=n_segments, ops=ops, geo=geo, settings=settings)
     else:
-        result = solve_it_NTU(n_elements=n_segments, ops=ops, geo=geo, settings=settings)
+        result = solve_ntu(n_elements=n_segments, ops=ops, geo=geo, settings=settings)
     return result, ops, geo
 
 

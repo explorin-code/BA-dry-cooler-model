@@ -17,6 +17,7 @@ PERCENT = 100.0      # divisor % -> fraction
 
 
 def from_parameters(cls, mapping: dict, **extra_kwargs):
+    """Builds `cls` from parameters.py: `mapping` = {field: CONSTANT_NAME or (CONSTANT_NAME, divisor)}. A constant that is None, and an extra keyword that is None, leaves the field at its default."""
     kwargs = {}
     for field, source in mapping.items():
         const_name, divisor = source if isinstance(source, tuple) else (source, None)

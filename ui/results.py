@@ -18,6 +18,7 @@ def markdown_table(df, decimals=2):
 
 
 def summary_table(results):
+    """One row per scenario and solver: Q, outlet temperatures, pinch, k, iterations and time."""
     rows = []
     for key in ("ambient", "precooled"):
         sc = results.get(key)
@@ -39,6 +40,7 @@ def economics_table(results):
 
 
 def show_output(mode, output):
+    """Draws a finished run on the page: the changed parameters, the tables, the log and the figures of the selected mode."""
     results, log_text, figures, changed = output
     if changed:
         st.caption("Changed vs. parameters.py: " + "; ".join(f"{label(n)} = {v!r}" for n, v in changed.items()))

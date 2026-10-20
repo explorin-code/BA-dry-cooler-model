@@ -41,6 +41,7 @@ def read_raw(raw_dir=RAW_DIR) -> pd.DataFrame:
 
 
 def monthly_statistics(df: pd.DataFrame) -> pd.DataFrame:
+    """Per calendar month: temperature (mean / min / max), hours below 0 °C and above 25 / 30 °C, mean humidity and pressure, interpolated hours."""
     g = df.groupby(df.index.to_period('M'))
     stats = pd.DataFrame({
         'hours': g.size(),
@@ -56,6 +57,7 @@ def monthly_statistics(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def build(raw_dir=RAW_DIR, out_dir=CLIMATE_DIR):
+    """Rebuilds the derived files of climate_data/ from the raw DWD download: the past year and all available hours, the monthly statistics and the design points. Returns the hourly table."""
     from src import weather                                        # design points use the project's definitions
     df = read_raw(raw_dir)
     out_dir.mkdir(exist_ok=True)

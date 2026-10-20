@@ -113,7 +113,7 @@ def _cell_local_grids(T_c, T_a, ops, geo, n_segments):
     return k_grid, dQdL_grid, local
 
 
-def solve_it_cell(n_segments: int = None, omega: float = None, ops=None, geo=None, settings=None):
+def solve_cell(n_segments: int = None, omega: float = None, ops=None, geo=None, settings=None):
     """omega: per-cell relaxation (default settings.cell_omega = 1.0; with
     omega < 1 the change-per-iteration criterion fires before convergence --
     see docs/model-notes.md). n_segments per tube and row (default settings.cell_n_segments)."""

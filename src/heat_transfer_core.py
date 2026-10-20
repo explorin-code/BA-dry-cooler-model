@@ -86,6 +86,7 @@ def calc_alpha_a(Nu_a: float, lambda_a: float, d: float) -> float:
 # Source: VDI Heat Atlas, Section M1, p. 1687, Eq. (13)   [in-line rows]
 # -----------------------------------------------------------------------
 def calc_fin_efficiency_inline(b_f: float, l_f: float, d: float, alpha_a: float, lambda_f: float, delta_f: float) -> float:
+    """Fin efficiency of IN-LINE tube rows (VDI M1 Eq. 13 with Eqs. 12, 7, 8). Not used: the model has staggered rows."""
     # Source: VDI M1, p. 1687, Eq. (13)
     phi_f_0 = 1.28 * (b_f / d) * ((l_f / b_f) - 0.2)**0.5
 
@@ -104,6 +105,7 @@ def calc_fin_efficiency_inline(b_f: float, l_f: float, d: float, alpha_a: float,
 # calc_fin_efficiency_inline() above for the Eq. (13) in-line variant)
 # -----------------------------------------------------------------------
 def calc_fin_efficiency_staggered(b_f: float, l_f: float, d: float, alpha_a: float, lambda_f: float, delta_f: float) -> float:
+    """Fin efficiency of STAGGERED tube rows (VDI M1 Eq. 14 with Eqs. 12, 7, 8); b_f and l_f are the fin rectangle of Geometry."""
     # Source: VDI M1, p. 1687, Eq. (14)
     phi_f_0 = 1.27 * (b_f / d) * ((l_f / b_f) - 0.3)**0.5
 

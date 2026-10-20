@@ -14,7 +14,7 @@ from src.solvers.ntu_table import get_ntu_table, ntu_table_step
 from src.solvers.relaxation import relax_lmtd_ntu
 
 
-def solve_it_NTU(omega: float = None, ops=None, geo=None, settings=None, n_elements: int = None,
+def solve_ntu(omega: float = None, ops=None, geo=None, settings=None, n_elements: int = None,
                  mode: str = 'field', profile: bool = True):
     """omega: relaxation of the outer property/k loop (default
     settings.ntu_omega = 1.0, undamped); n_elements per tube and row

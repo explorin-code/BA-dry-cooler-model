@@ -5,9 +5,9 @@ Two ways to compare:
                 water faster (higher Re, alpha_c), pressure drop up, conduction
                 resistance up, copper mass up.
   'Re fixed'  : N_t is rescaled to keep the tube Reynolds number -> a thicker wall
-                needs FEWER tubes (smaller bore at the same Re carries less water each,
-                so MORE tubes -- see output), face area and air flow change with it.
-The wall was an assumption for P1, P3 (0.5 mm) and P4 (2 mm).
+                means a smaller bore that carries less water per tube, so MORE tubes;
+                face area and air flow change with it.
+The wall is an assumption of the cells (P1, P2 0.5 mm; P3 1 mm).
 """
 
 import dataclasses
@@ -24,6 +24,7 @@ WALLS = np.array([0.3, 0.5, 0.75, 1.0, 1.5, 2.0])
 
 
 def run(cfg, method=None) -> pd.DataFrame:
+    """Varies the tube wall thickness at the design point, with N_t fixed and with N_t re-sized to keep the tube Reynolds number: one row per cooler, wall and basis."""
     method = cfg.solver(table_ok=False) if method is None else method
     pt = cfg.design_point()
     rows = []

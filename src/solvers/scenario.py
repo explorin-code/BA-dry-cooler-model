@@ -5,21 +5,21 @@ scenario.py -- running the solvers: one by key (run_solver) or a selection on on
 import dataclasses
 import time
 
-from src.solvers.cell import solve_it_cell
+from src.solvers.cell import solve_cell
 from src.solvers.common import fill_defaults
-from src.solvers.lmtd import solve_it_LMTD
-from src.solvers.ntu import solve_it_NTU
+from src.solvers.lmtd import solve_lmtd
+from src.solvers.ntu import solve_ntu
 from src.solvers.results import SOLVER_LABELS, ScenarioResult, SolverResult
 
 
 # key -> solver function (ops, geo, settings, profile) -> SolverResult. Cell 2D / 3D differ only in settings.cell_2d,
 # NTU field / table in the mode.
 SOLVERS = {
-    'lmtd': lambda ops, geo, settings, profile: solve_it_LMTD(ops=ops, geo=geo, settings=settings),
-    'ntu_field': lambda ops, geo, settings, profile: solve_it_NTU(ops=ops, geo=geo, settings=settings, mode='field'),
-    'ntu_table': lambda ops, geo, settings, profile: solve_it_NTU(ops=ops, geo=geo, settings=settings, mode='table', profile=profile),
-    'cell_2d': lambda ops, geo, settings, profile: solve_it_cell(ops=ops, geo=geo, settings=dataclasses.replace(settings, cell_2d=True)),
-    'cell_3d': lambda ops, geo, settings, profile: solve_it_cell(ops=ops, geo=geo, settings=dataclasses.replace(settings, cell_2d=False)),
+    'lmtd': lambda ops, geo, settings, profile: solve_lmtd(ops=ops, geo=geo, settings=settings),
+    'ntu_field': lambda ops, geo, settings, profile: solve_ntu(ops=ops, geo=geo, settings=settings, mode='field'),
+    'ntu_table': lambda ops, geo, settings, profile: solve_ntu(ops=ops, geo=geo, settings=settings, mode='table', profile=profile),
+    'cell_2d': lambda ops, geo, settings, profile: solve_cell(ops=ops, geo=geo, settings=dataclasses.replace(settings, cell_2d=True)),
+    'cell_3d': lambda ops, geo, settings, profile: solve_cell(ops=ops, geo=geo, settings=dataclasses.replace(settings, cell_2d=False)),
 }
 assert SOLVERS.keys() == SOLVER_LABELS.keys()
 

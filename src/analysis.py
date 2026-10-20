@@ -24,10 +24,9 @@ class ProfileData:
     dQdL: object
 
 
-# closed-form reconstruction of LMTD's implied exponential T(x)
-# profile, derived from the log-mean assumption itself -- not something
-# solve_it_LMTD computes. See docs/model-notes.md.
 def calc_lmtd_profile(lmtd_result, ops, geo, n_points: int = 200) -> ProfileData:
+    """The exponential T(x) profile implied by LMTD's log-mean assumption, reconstructed in closed form from its converged
+    scalars -- not something solve_lmtd computes (docs/model-notes.md)."""
     Delta_T_hot = ops.T_c_i - lmtd_result.T_a_o
     Delta_T_cold = lmtd_result.T_c_o - ops.T_a_i
 
@@ -53,11 +52,9 @@ def calc_lmtd_profile(lmtd_result, ops, geo, n_points: int = 200) -> ProfileData
     return ProfileData(x_frac=x_frac, T_c=T_c, T_a=T_a, k=k_profile, dQdL=dQdL)
 
 
-# NTU's profile is a genuine reduction of its own converged element field
-# (solve_it_NTU), along the same coolant path the field solver marches
-# (cell_path_order). Same reduction as calc_cell_profile below; for NTU all
-# tubes are identical, so mean/sum over tubes are exact copies/multiples.
 def calc_ntu_profile(ntu_result, geo, n_elements: int) -> ProfileData:
+    """NTU's profile: a reduction of its own converged element field along the coolant path the solver marches
+    (cell_path_order). Same reduction as calc_cell_profile; all tubes are identical for NTU, so the mean / sum over tubes is exact."""
     path = cell_path_order(geo.N_r, n_elements)
     n_points = len(path)
 
@@ -71,12 +68,9 @@ def calc_ntu_profile(ntu_result, geo, n_elements: int) -> ProfileData:
     return ProfileData(x_frac=x_frac, T_c=T_c, T_a=T_a, k=k, dQdL=dQdL)
 
 
-# Cell's profile is a genuine reduction, not a reconstruction -- see
-# solve_it_cell's own diagnostic pass for where this data actually comes from.
-# path comes from solvers.cell_path_order -- the SAME function the shared
-# field traversal (solvers.sweep_two_way, pass 1) walks, so this is provably
-# the same path the solver itself walks, not a separate guess at it.
 def calc_cell_profile(cell_result, geo, n_segments: int) -> ProfileData:
+    """Cell's profile: a reduction of its converged grids (not a reconstruction), along solvers.cell_path_order -- the same
+    path the shared field traversal (sweep_two_way, pass 1) walks."""
     path = cell_path_order(geo.N_r, n_segments)
     n_points = len(path)
 

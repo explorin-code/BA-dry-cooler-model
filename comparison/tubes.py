@@ -19,6 +19,7 @@ FACTORS = np.array([0.3, 0.4, 0.5, 0.65, 0.8, 1.0, 1.25, 1.5, 2.0, 2.5])      # 
 
 
 def run(cfg, method=None) -> pd.DataFrame:
+    """Varies N_t (FACTORS times the sized count) at fixed water flow and tube length: one row per cooler, case and tube count."""
     method = cfg.solver(table_ok=False) if method is None else method
     points = cfg.design_points()
     cases = [('design', 'dry'), ('P95', 'precooled')]

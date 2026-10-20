@@ -41,6 +41,7 @@ WORKFLOWS = ('solver', 'compare')
 
 
 def add_solver_arguments(parser):
+    """Adds the solver-comparison options (insight, outputs, cooler, solvers, annual-benchmark limits) to `parser`; an option that is not given falls back to parameters.py."""
     flag = lambda name, help_: parser.add_argument(f"--{name}", action=argparse.BooleanOptionalAction, default=None, help=help_)
     flag("insight", "per-iteration progress + detailed results in the terminal")
     parser.add_argument("--outputs", nargs="*", choices=list(OUTPUTS),
@@ -53,6 +54,7 @@ def add_solver_arguments(parser):
 
 
 def parse_args(argv=None):
+    """Command-line arguments of both workflows; the solver comparison is the default when no workflow is named."""
     parser = argparse.ArgumentParser(description="Dry-cooler model: solver comparison (one cooler) or cooler comparison (P1-P3 over the climate year).")
     sub = parser.add_subparsers(dest='workflow')
     add_solver_arguments(sub.add_parser('solver', help="solver comparison: one cooler, the selected solvers (default)"))
@@ -73,6 +75,7 @@ def setup_logging(insight_mode: bool = False):
 
 
 def run_solver(args):
+    """Runs the solver comparison with the options of the command line."""
     from src.run_modes import get_run_modes
     from src.scenario_pipeline import run_scenarios
     if args.cooler:

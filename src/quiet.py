@@ -27,6 +27,7 @@ def silence_all():
 
 @contextmanager
 def quiet_solvers():
+    """Context manager for studies that run many solves: no solver log output and no Wang / NTU range warnings."""
     src_logger = logging.getLogger('src')
     old_level = src_logger.level
     src_logger.setLevel(logging.ERROR)

@@ -46,6 +46,7 @@ def _row(cfg, geo, pt, w_fr, basis, param, value):
 
 
 def run(cfg, set_key=None, n=None):
+    """One-at-a-time sensitivities of the base module (`set_key`, default the configured sensitivity cooler) over config.RANGES with `n` values per parameter. Every variant is solved at the design face velocity and at the face velocity that gives the base fan power: one row per variant and basis."""
     n = N_POINTS if n is None else n
     set_key = cfg.sensitivity_set if set_key is None else set_key
     pt = cfg.design_point()

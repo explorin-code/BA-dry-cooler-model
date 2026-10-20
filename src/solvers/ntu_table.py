@@ -2,7 +2,7 @@
 ntu_table.py -- NTU 'table' mode: the arrangement's characteristic P(NTU_a, R) computed once with the element field
 (like the paper's Tables 4 / 5), stored on disk (cache/ntu_tables/, gitignored), interpolated in the outer loop.
 
-P is independent of the inlet temperatures (Cabezas-Gomez et al. 2007, p. 283) and of everything in the geometry
+P is independent of the inlet temperatures (Cabezas-Gomez et al. 2006, p. 283) and of everything in the geometry
 except N_r and the element count. Outside the table range the field is solved instead (ntu.py).
 """
 

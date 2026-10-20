@@ -12,6 +12,7 @@ from src.figures import GEOMETRY
 
 
 def geometries(df, cfg):
+    """Bar charts of the sized modules per cooler: face area, depth, total area, fan power and fin / tube mass (df = the module table of the geometry analysis)."""
     cell = df
     panels = ['A_fr', 'depth', 'A_tot', 'P_fan', 'm_Al', 'm_Cu']
     fig, axes = plt.subplots(2, 3, figsize=(16, 9))
@@ -24,6 +25,7 @@ def geometries(df, cfg):
 
 
 def sensitivity(df, cfg):
+    """Q against every varied parameter, at the held face velocity (solid) and at the held fan power (dashed); red crosses = outside the Wang / VDI validity range (df = sensitivity.run)."""
     base = df[df.param == 'base'].iloc[0]
     params = [p for p in df.param.unique() if p != 'base']
     fig, axes = plt.subplots(2, 4, figsize=(22, 10))
